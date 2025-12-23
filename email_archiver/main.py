@@ -10,6 +10,7 @@ from email_archiver.core.utils import setup_logging, generate_filename, send_to_
 from email_archiver.core.gmail_handler import GmailHandler
 from email_archiver.core.graph_handler import GraphHandler
 from email_archiver.core.classifier import EmailClassifier
+from email_archiver.core.extractor import EmailExtractor
 
 CONFIG_PATH = 'config/settings.yaml'
 CHECKPOINT_PATH = 'config/checkpoint.json'
@@ -49,6 +50,7 @@ def main():
     parser.add_argument('--metadata-output', help='Output file for classification metadata (JSONL format)')
     parser.add_argument('--llm-provider', choices=['openai', 'ollama', 'lm_studio', 'local'], default='openai', help='LLM provider for classification (default: openai)')
     parser.add_argument('--llm-base-url', help='Custom base URL for local LLM API (e.g., http://localhost:11434/v1)')
+    parser.add_argument('--extract', action='store_true', help='Enable advanced metadata extraction (v0.5.0)')
     
     args = parser.parse_args()
     
@@ -99,12 +101,21 @@ def main():
     config['classification'] = classification_config
     classifier = EmailClassifier(config)
     
-    # Open metadata file if classification is enabled
+    # Apply CLI extraction overrides
+    extraction_config = config.get('extraction', {})
+    if args.extract:
+        extraction_config['enabled'] = True
+    config['extraction'] = extraction_config
+    
+    # Initialize extractor
+    extractor = EmailExtractor(config)
+    
+    # Open metadata file if classification OR extraction is enabled
     metadata_file_handle = None
-    if classifier.enabled:
+    if classifier.enabled or extractor.enabled:
         metadata_path = classification_config.get('metadata_file', 'email_metadata.jsonl')
         metadata_file_handle = open(metadata_path, 'a', encoding='utf-8')
-        logging.info(f"Classification metadata will be saved to: {metadata_path}")
+        logging.info(f"Metadata will be saved to: {metadata_path}")
 
     handler = None
     if args.provider == 'gmail':
@@ -227,6 +238,11 @@ def main():
                         logging.info(f"Skipping email '{subject[:50]}...' (category: {classification.get('category')})")
                         continue
             
+            # Extract advanced metadata if enabled
+            extraction = None
+            if extractor.enabled:
+                extraction = extractor.extract_metadata(email_obj, subject, sender)
+            
             timestamp = datetime.now()
             
             if args.provider == 'm365' and 'receivedDateTime' in metadata:
@@ -253,8 +269,8 @@ def main():
                     f.write(file_content)
                 success_count += 1
                 
-                # Save classification metadata
-                if classifier.enabled and classification and metadata_file_handle:
+                # Save classification/extraction metadata
+                if (classifier.enabled or extractor.enabled) and metadata_file_handle:
                     metadata_entry = {
                         "message_id": msg['id'],
                         "subject": subject,
@@ -264,6 +280,7 @@ def main():
                         "bcc": recipients_bcc,
                         "date": timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp,
                         "classification": classification,
+                        "extraction": extraction,
                         "file_path": file_path
                     }
                     metadata_file_handle.write(json.dumps(metadata_entry) + '\n')

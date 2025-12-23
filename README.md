@@ -7,6 +7,7 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 - **🔐 Secure OAuth2 Authentication** - Browser-based authentication with 2FA support
 - **📧 Multi-Provider Support** - Gmail and Microsoft 365 (Outlook)
 - **🧠 AI-Powered Classification** - Automatically categorize emails and skip promotions (v0.3.0+)
+- **📊 Advanced Extraction** - Extract structured data like summaries, action items, and invoices (v0.5.0+)
 - **🏠 Local LLM Support** - Connect to **Ollama**, **LM Studio**, or **llama.cpp** (v0.4.0+)
 - **🔍 Advanced Filtering** - Date-based, incremental sync, custom queries
 - **🪝 Webhook Integration** - Automatically send downloaded emails to webhook endpoints
@@ -150,6 +151,7 @@ webhook:
 | `--metadata-output PATH` | Path to save JSONL metadata |
 | `--llm-provider ID` | LLM provider (openai, ollama, etc.) |
 | `--llm-base-url URL` | Custom LLM API endpoint URL |
+| `--extract` | Enable advanced metadata extraction |
 
 See [API Reference](docs/API.md) for complete documentation.
 

@@ -59,4 +59,16 @@ classification:
   # Save classification metadata to JSONL file
   metadata_file: "email_metadata.jsonl"
 
+extraction:
+  # Enable Advanced AI Metadata Extraction (v0.5.0)
+  enabled: false
+  
+  # Provider (defaults to classification's provider if not set)
+  # provider: "openai"
+  
+  # Model to use (gpt-4o-mini recommended)
+  # model: "gpt-4o-mini"
+  
+  # Specific extraction fields can be defined here if we add template support later
+
 
