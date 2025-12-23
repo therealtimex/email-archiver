@@ -1,0 +1,7 @@
+google-api-python-client
+google-auth-oauthlib
+msal
+python-dateutil
+tqdm
+requests
+pyyaml

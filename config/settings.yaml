@@ -1,0 +1,27 @@
+gmail:
+  # Path to the credentials.json file downloaded from Google Cloud Console
+  client_secrets_file: "config/client_secret.json"
+  # Scopes required for Gmail API
+  scopes: ["https://www.googleapis.com/auth/gmail.readonly"]
+
+m365:
+  # Azure AD Application Client ID
+  client_id: "YOUR_CLIENT_ID"
+  # Authority URL (common for multi-tenant, or specific tenant ID)
+  authority: "https://login.microsoftonline.com/common"
+  # Scopes required for Graph API
+  scopes: ["Mail.Read"]
+
+app:
+  # Base directory for downloads if not specified via CLI
+  download_dir: "downloads"
+  # Log file path
+  log_file: "sync.log"
+
+webhook:
+  # URL to POST the .eml file to
+  url: ""
+  enabled: false
+  # Optional headers (dictionary)
+  headers: {}
+
