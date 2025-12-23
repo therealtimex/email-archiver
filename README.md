@@ -220,4 +220,12 @@ See [EXAMPLES.md](docs/EXAMPLES.md) for 21 more examples!
 
 ---
 
+## 👥 Author & Credits
+
+**Author**: Trung Le  
+**Team**: [RealTimeX.ai](https://realtimex.ai)  
+**Repository**: https://github.com/therealtimex/email-archiver
+
+---
+
 **Built with ❤️ for secure email archiving**

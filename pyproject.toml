@@ -4,6 +4,27 @@ version = "0.2.0"
 description = "Email-to-EML Secure Archiver"
 readme = "README.md"
 requires-python = ">=3.9"
+authors = [
+    {name = "Trung Le", email = "trung@realtimex.ai"}
+]
+maintainers = [
+    {name = "RealTimeX.ai Team"}
+]
+keywords = ["email", "archiver", "gmail", "microsoft365", "eml", "backup", "webhook"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Email",
+    "Topic :: System :: Archiving :: Backup",
+]
 dependencies = [
     "google-api-python-client",
     "google-auth-oauthlib",
@@ -13,6 +34,13 @@ dependencies = [
     "requests",
     "pyyaml"
 ]
+
+[project.urls]
+Homepage = "https://realtimex.ai"
+Documentation = "https://github.com/therealtimex/email-archiver/blob/main/docs/README.md"
+Repository = "https://github.com/therealtimex/email-archiver"
+Issues = "https://github.com/therealtimex/email-archiver/issues"
+Changelog = "https://github.com/therealtimex/email-archiver/blob/main/CHANGELOG.md"
 
 [project.scripts]
 email-archiver = "email_archiver.main:main"
