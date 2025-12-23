@@ -123,10 +123,17 @@
                     <h1 class="text-2xl font-bold text-gradient"
                         x-text="activeTab === 'dashboard' ? 'Archive Intelligence' : 'System Configuration'"></h1>
                     <p class="text-sm text-slate-500"
-                        x-text="activeTab === 'dashboard' ? 'System Dashboard v0.6.0' : 'Global Settings & AI Model Control'">
+                        x-text="activeTab === 'dashboard' ? 'System Dashboard v0.7.0' : 'Global Settings & AI Model Control'">
                     </p>
                 </div>
                 <div class="flex gap-4 items-center">
+                    <!-- Search Bar -->
+                    <div class="relative hidden lg:block">
+                        <input type="text" x-model="search" @input.debounce.500ms="resetAndFetch()"
+                            class="w-64 glass rounded-xl px-10 py-2 text-xs focus:ring-1 focus:ring-primary/50 outline-none"
+                            placeholder="Search archive...">
+                        <span class="absolute left-3 top-2.5 text-slate-500 text-sm">🔍</span>
+                    </div>
                     <div class="px-3 py-1 glass rounded-full text-xs font-semibold text-slate-400">
                         <span :class="status.is_running ? 'text-green-400 animate-pulse' : 'text-slate-500'">●</span>
                         <span x-text="status.is_running ? 'SYNC ACTIVE' : 'SYSTEM READY'"></span>
@@ -319,9 +326,13 @@
                             <span class="w-1.5 h-1.5 rounded-full bg-primary shadow shadow-primary"></span>
                             Intelligence Feed
                         </h2>
-                        <button @click="fetchData()"
-                            class="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest transition-colors">Refresh
-                            View</button>
+                        <div class="flex items-center gap-4">
+                            <span class="text-[10px] text-slate-500" x-show="search">Showing results for: "<span
+                                    x-text="search"></span>"</span>
+                            <button @click="resetAndFetch()"
+                                class="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest transition-colors">Refresh
+                                View</button>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm border-collapse">
@@ -336,29 +347,43 @@
                             </thead>
                             <tbody class="divide-y divide-white/5">
                                 <template x-for="(email, index) in emails" :key="index">
-                                    <tr class="hover:bg-white/5 transition-colors group">
+                                    <tr @click="openEmail(email)"
+                                        class="hover:bg-white/5 transition-colors group cursor-pointer border-l-2 border-transparent hover:border-primary">
                                         <td class="px-6 py-4 font-medium truncate max-w-xs text-slate-200"
                                             x-text="email.subject"></td>
-                                        <td class="px-6 py-4 text-slate-400 truncate max-w-[150px]" x-text="email.from">
+                                        <td class="px-6 py-4 text-slate-400 truncate max-w-[150px]"
+                                            x-text="email.sender">
                                         </td>
                                         <td class="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap"
-                                            x-text="formatDate(email.date)"></td>
+                                            x-text="formatDate(email.received_at)"></td>
                                         <td class="px-6 py-4">
-                                            <template x-if="email.classification">
-                                                <span :class="getBadgeClass(email.classification.category)"
-                                                    class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
-                                                    x-text="email.classification.category"></span>
-                                            </template>
-                                            <template x-if="!email.classification">
-                                                <span class="text-slate-700">—</span>
-                                            </template>
+                                            <div class="flex items-center gap-2">
+                                                <template x-if="email.classification">
+                                                    <span :class="getBadgeClass(email.classification.category)"
+                                                        class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
+                                                        x-text="email.classification.category"></span>
+                                                </template>
+                                                <template x-if="!email.classification">
+                                                    <span class="text-slate-700 text-[10px]">UNPROCESSED</span>
+                                                </template>
+                                                <span x-show="email.extraction" class="text-xs"
+                                                    title="Deep Extraction Available">🧩</span>
+                                            </div>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                         <div x-show="emails.length === 0" class="p-12 text-center text-slate-600">
-                            No archived emails detected in the metadata repository.
+                            No emails found matching your current filter.
+                        </div>
+                        <div class="p-4 flex justify-center border-t border-white/5" x-show="emails.length > 0">
+                            <button @click="loadMore()" :disabled="isLoadingMore"
+                                class="px-6 py-1 glass rounded-lg text-[10px] font-bold text-slate-400 hover:text-primary transition-all uppercase tracking-widest flex items-center gap-2">
+                                <span x-show="isLoadingMore"
+                                    class="w-3 h-3 border border-slate-500 border-t-primary rounded-full animate-spin"></span>
+                                Load More Messages
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -501,6 +526,128 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Email Detail Modal -->
+            <div x-show="selectedEmail" x-cloak
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                @keydown.escape.window="selectedEmail = null">
+                <div class="glass w-full max-w-3xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl"
+                    @click.away="selectedEmail = null">
+                    <div class="p-6 border-b border-white/10 flex justify-between items-start">
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-200" x-text="selectedEmail?.subject"></h3>
+                            <div class="flex gap-4 mt-2">
+                                <span class="text-xs text-slate-500">From: <span class="text-slate-300"
+                                        x-text="selectedEmail?.sender"></span></span>
+                                <span class="text-xs text-slate-500">Date: <span class="text-slate-300"
+                                        x-text="formatDate(selectedEmail?.received_at)"></span></span>
+                            </div>
+                        </div>
+                        <button @click="selectedEmail = null" class="text-slate-500 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-8 space-y-8">
+                        <!-- Intelligence Panel -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-primary/5 rounded-2xl p-5 border border-primary/10">
+                                <h4 class="text-[10px] font-bold text-primary uppercase tracking-widest mb-3">
+                                    Classification</h4>
+                                <template x-if="selectedEmail?.classification">
+                                    <div class="space-y-4">
+                                        <div class="flex items-center gap-3">
+                                            <span :class="getBadgeClass(selectedEmail.classification.category)"
+                                                class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                                x-text="selectedEmail.classification.category"></span>
+                                            <span x-show="selectedEmail.classification.reasoning"
+                                                class="text-[10px] text-slate-500">AI Confidence: High</span>
+                                        </div>
+                                        <p class="text-sm text-slate-300 leading-relaxed"
+                                            x-text="selectedEmail.classification.reasoning"></p>
+                                    </div>
+                                </template>
+                                <template x-if="!selectedEmail?.classification">
+                                    <p class="text-xs text-slate-600 italic">No AI classification metadata available for
+                                        this item.</p>
+                                </template>
+                            </div>
+
+                            <div class="bg-secondary/5 rounded-2xl p-5 border border-secondary/10">
+                                <h4 class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-3">System
+                                    Info</h4>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase">Source</span>
+                                        <span class="text-[10px] text-slate-300 font-bold uppercase"
+                                            x-text="selectedEmail?.provider"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase">Archived</span>
+                                        <span class="text-[10px] text-slate-300 font-bold uppercase"
+                                            x-text="formatDate(selectedEmail?.processed_at)"></span>
+                                    </div>
+                                    <div class="pt-2 border-t border-white/5">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase block mb-1">Local
+                                            Path</span>
+                                        <code
+                                            class="text-[10px] text-indigo-300/80 block break-all font-mono bg-black/20 p-2 rounded"
+                                            x-text="selectedEmail?.file_path"></code>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Extraction Results -->
+                        <template x-if="selectedEmail?.extraction">
+                            <div class="glass rounded-2xl p-6 border border-white/5">
+                                <h4 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-4">Deep
+                                    Extraction Results</h4>
+
+                                <div class="space-y-6">
+                                    <div>
+                                        <span
+                                            class="text-[10px] text-slate-500 font-bold uppercase block mb-1">Summary</span>
+                                        <p class="text-sm text-slate-200 leading-relaxed"
+                                            x-text="selectedEmail.extraction.summary"></p>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div x-show="selectedEmail.extraction.action_items?.length">
+                                            <span
+                                                class="text-[10px] text-slate-500 font-bold uppercase block mb-2">Action
+                                                Items</span>
+                                            <ul class="space-y-2">
+                                                <template x-for="item in selectedEmail.extraction.action_items">
+                                                    <li class="text-xs text-slate-400 flex gap-2">
+                                                        <span class="text-indigo-500">▹</span>
+                                                        <span x-text="item"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </div>
+                                        <div x-show="selectedEmail.extraction.organizations?.length">
+                                            <span
+                                                class="text-[10px] text-slate-500 font-bold uppercase block mb-2">Relevant
+                                                Entities</span>
+                                            <div class="flex flex-wrap gap-2">
+                                                <template x-for="org in selectedEmail.extraction.organizations">
+                                                    <span
+                                                        class="px-2 py-1 bg-white/5 rounded text-[10px] text-slate-400"
+                                                        x-text="org"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -511,6 +658,10 @@
                 stats: { total_archived: 0, classified: 0, extracted: 0, categories: {} },
                 emails: [],
                 status: { is_running: false, logs: [] },
+                search: '',
+                skip: 0,
+                selectedEmail: null,
+                isLoadingMore: false,
                 syncConfig: {
                     provider: 'gmail',
                     incremental: true,
@@ -528,13 +679,13 @@
                 },
                 isSaving: false,
                 init() {
-                    this.fetchData();
+                    this.resetAndFetch();
                     this.fetchSettings();
 
                     setInterval(() => {
                         this.fetchStatus();
                         if (this.status.is_running) {
-                            this.fetchData();
+                            this.fetchData(false); // Update stats/logs, but don't reset list if syncing
                             this.$nextTick(() => {
                                 const el = this.$refs.logConsole;
                                 if (el) el.scrollTop = el.scrollHeight;
@@ -542,15 +693,35 @@
                         }
                     }, 2000);
                 },
-                async fetchData() {
+                resetAndFetch() {
+                    this.skip = 0;
+                    this.fetchData(true);
+                },
+                async fetchData(reset = true) {
                     try {
                         const [statsRes, emailsRes] = await Promise.all([
                             fetch('/api/stats'),
-                            fetch('/api/emails')
+                            fetch(`/api/emails?search=${encodeURIComponent(this.search)}&skip=${this.skip}`)
                         ]);
                         this.stats = await statsRes.json();
-                        this.emails = await emailsRes.json();
+                        const newEmails = await emailsRes.json();
+                        if (reset) {
+                            this.emails = newEmails;
+                        } else {
+                            // Append uniquely or just replace? Replace for now if skip is 0, append otherwise
+                            if (this.skip === 0) this.emails = newEmails;
+                            else this.emails = [...this.emails, ...newEmails];
+                        }
                     } catch (e) { console.error('Data fetch error:', e); }
+                },
+                async loadMore() {
+                    this.isLoadingMore = true;
+                    this.skip += 50;
+                    await this.fetchData(false);
+                    this.isLoadingMore = false;
+                },
+                openEmail(email) {
+                    this.selectedEmail = email;
                 },
                 async fetchStatus() {
                     try {

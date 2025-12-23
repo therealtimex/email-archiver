@@ -119,26 +119,38 @@ class DBHandler:
             logging.error(f"Error fetching stats from DB: {e}")
         return stats
 
-    def get_emails(self, limit=50, offset=0):
-        """Returns a list of emails for the dashboard."""
+    def get_emails(self, limit=50, offset=0, search_query=None):
+        """Returns a list of emails for the dashboard, with optional search."""
         emails = []
         try:
             with self._get_connection() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT * FROM emails 
-                    ORDER BY received_at DESC 
-                    LIMIT ? OFFSET ?
-                ''', (limit, offset))
+                
+                query = "SELECT * FROM emails"
+                params = []
+                
+                if search_query:
+                    query += " WHERE subject LIKE ? OR sender LIKE ? OR recipients LIKE ? OR classification LIKE ? OR extraction LIKE ?"
+                    search_param = f"%{search_query}%"
+                    params.extend([search_param] * 5)
+                
+                query += " ORDER BY received_at DESC LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
+                
+                cursor.execute(query, params)
                 
                 for row in cursor.fetchall():
                     email_data = dict(row)
                     # Parse JSON fields
                     if email_data["classification"]:
-                        email_data["classification"] = json.loads(email_data["classification"])
+                        try:
+                            email_data["classification"] = json.loads(email_data["classification"])
+                        except: pass
                     if email_data["extraction"]:
-                        email_data["extraction"] = json.loads(email_data["extraction"])
+                        try:
+                            email_data["extraction"] = json.loads(email_data["extraction"])
+                        except: pass
                     emails.append(email_data)
         except Exception as e:
             logging.error(f"Error fetching emails from DB: {e}")

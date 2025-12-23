@@ -101,8 +101,8 @@ async def get_stats():
     return db.get_stats()
 
 @app.get("/api/emails")
-async def get_emails(limit: int = 50, skip: int = 0):
-    return db.get_emails(limit=limit, offset=skip)
+async def get_emails(limit: int = 50, skip: int = 0, search: Optional[str] = None):
+    return db.get_emails(limit=limit, offset=skip, search_query=search)
 
 async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None):
     global sync_status
