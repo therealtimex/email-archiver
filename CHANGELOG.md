@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-23
+
+### Added
+- **Optional Web UI Dashboard**: A high-end, visual interface for managing your archive.
+  - New `--ui` flag to launch the dashboard instantly.
+  - **Premium Design**: Built with React and Tailwind CSS, featuring a glassmorphism dark mode.
+  - **Intelligence Hub**: Real-time stats on classification, extraction, and sync progress.
+  - **Metadata Browser**: Explore and filter your archived emails with AI summaries and categories.
+  - **Easy Setup**: Zero-configuration launch via FastAPI.
+
+### Changed
+- Refactored project structure to support optional web server logic.
+- Updated `pyproject.toml` with `ui` optional dependency group.
+
 ## [0.5.0] - 2025-12-23
 
 ### Added

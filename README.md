@@ -8,6 +8,7 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 - **📧 Multi-Provider Support** - Gmail and Microsoft 365 (Outlook)
 - **🧠 AI-Powered Classification** - Automatically categorize emails and skip promotions (v0.3.0+)
 - **📊 Advanced Extraction** - Extract structured data like summaries, action items, and invoices (v0.5.0+)
+- **🖥️ Premium Web UI** - Optional dashboard with high-end dark mode and real-time stats (v0.6.0+)
 - **🏠 Local LLM Support** - Connect to **Ollama**, **LM Studio**, or **llama.cpp** (v0.4.0+)
 - **🔍 Advanced Filtering** - Date-based, incremental sync, custom queries
 - **🪝 Webhook Integration** - Automatically send downloaded emails to webhook endpoints
@@ -20,13 +21,20 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 
 **Using uvx (recommended - no installation needed):**
 ```bash
+# To run the CLI
 uvx email-archiver --help
+
+# To run the Web UI (installs optional dependencies automatically)
+uvx --with email-archiver[ui] email-archiver --ui
 ```
 
 **Using pip:**
 ```bash
+# For CLI only
 pip install email-archiver
-email-archiver --help
+
+# For CLI + Web UI
+pip install "email-archiver[ui]"
 ```
 
 **From source:**
@@ -40,6 +48,9 @@ uv run email-archiver --help
 ### Basic Usage
 
 ```bash
+# Launch the Web Dashboard
+email-archiver --ui
+
 # Download emails from Gmail since a specific date
 email-archiver --provider gmail --since 2024-12-01
 
@@ -152,6 +163,7 @@ webhook:
 | `--llm-provider ID` | LLM provider (openai, ollama, etc.) |
 | `--llm-base-url URL` | Custom LLM API endpoint URL |
 | `--extract` | Enable advanced metadata extraction |
+| `--ui` | Launch the Web Dashboard |
 
 See [API Reference](docs/API.md) for complete documentation.
 

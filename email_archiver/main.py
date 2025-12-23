@@ -51,8 +51,22 @@ def main():
     parser.add_argument('--llm-provider', choices=['openai', 'ollama', 'lm_studio', 'local'], default='openai', help='LLM provider for classification (default: openai)')
     parser.add_argument('--llm-base-url', help='Custom base URL for local LLM API (e.g., http://localhost:11434/v1)')
     parser.add_argument('--extract', action='store_true', help='Enable advanced metadata extraction (v0.5.0)')
+    parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0)')
     
     args = parser.parse_args()
+    
+    # Handle UI early
+    if args.ui:
+        try:
+            from email_archiver.server.app import start_server
+            start_server()
+            return
+        except ImportError:
+            logging.error("UI dependencies not found. Install with: pip install 'email-archiver[ui]'")
+            return
+
+    if not args.provider:
+        parser.error("--provider is required unless using --ui")
     
     config = load_config(CONFIG_PATH)
     checkpoint = load_checkpoint(CHECKPOINT_PATH)
