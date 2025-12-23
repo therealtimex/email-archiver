@@ -1,20 +1,25 @@
 import os
 import json
 import logging
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import asyncio
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
+from datetime import datetime
+import yaml
 
-# Import core logic (relative imports since this is a subpackage)
+# Import core logic
 from email_archiver.core.utils import setup_logging
 from email_archiver.core.classifier import EmailClassifier
+from email_archiver.core.db_handler import DBHandler
 
 app = FastAPI(title="EESA Web Dashboard")
 
-# Enable CORS for development
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,76 +28,130 @@ app.add_middleware(
 )
 
 # Paths
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(SERVER_DIR))
 CONFIG_PATH = os.path.join(BASE_DIR, 'config', 'settings.yaml')
-CHECKPOINT_PATH = os.path.join(BASE_DIR, 'config', 'checkpoint.json')
 METADATA_PATH = os.path.join(BASE_DIR, 'email_metadata.jsonl')
-UI_DIST_DIR = os.path.join(os.path.dirname(__file__), "static")
+TEMPLATES_DIR = os.path.join(SERVER_DIR, "templates")
+STATIC_DIR = os.path.join(SERVER_DIR, "static")
 
-# Models
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# Initialize DB
+db = DBHandler()
+
+# Global state for sync progress
+sync_status = {
+    "is_running": False,
+    "last_run": None,
+    "current_task": None,
+    "progress": 0,
+    "logs": []
+}
+
+class UILogHandler(logging.Handler):
+    def emit(self, record):
+        log_entry = self.format(record)
+        sync_status["logs"].append(log_entry)
+        # Keep only last 100 logs
+        if len(sync_status["logs"]) > 100:
+            sync_status["logs"].pop(0)
+
+ui_log_handler = UILogHandler()
+ui_log_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
 class SyncRequest(BaseModel):
     provider: str
     incremental: bool = True
-    since: Optional[str] = None
     classify: bool = False
     extract: bool = False
+    since: Optional[str] = None
+    after_id: Optional[str] = None
+    query: Optional[str] = None
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/api/settings")
+async def get_settings():
+    """Reads the current settings from settings.yaml."""
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, 'r') as f:
+                return yaml.safe_load(f)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading config: {e}")
+    return {}
+
+@app.post("/api/settings")
+async def update_settings(new_settings: Dict[str, Any]):
+    """Updates the settings.yaml file."""
+    try:
+        # Merge or overwrite? For simplicity in MVP, we overwrite 
+        # but we could also deep merge.
+        with open(CONFIG_PATH, 'w') as f:
+            yaml.dump(new_settings, f, default_flow_style=False)
+        return {"message": "Settings updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving config: {e}")
 
 @app.get("/api/stats")
 async def get_stats():
-    """Returns archive statistics."""
-    stats = {
-        "total_archived": 0,
-        "classified": 0,
-        "extracted": 0,
-        "categories": {}
-    }
-    
-    if os.path.exists(METADATA_PATH):
-        with open(METADATA_PATH, 'r') as f:
-            for line in f:
-                stats["total_archived"] += 1
-                try:
-                    data = json.loads(line)
-                    if data.get("classification"):
-                        stats["classified"] += 1
-                        cat = data["classification"].get("category", "unknown")
-                        stats["categories"][cat] = stats["categories"].get(cat, 0) + 1
-                    if data.get("extraction"):
-                        stats["extracted"] += 1
-                except:
-                    continue
-                    
-    return stats
+    return db.get_stats()
 
 @app.get("/api/emails")
-async def get_emails(limit: int = 100, skip: int = 0):
-    """Returns a list of archived emails and their metadata."""
-    emails = []
-    if os.path.exists(METADATA_PATH):
-        with open(METADATA_PATH, 'r') as f:
-            # Reversing to get latest first if possible, or just reading
-            lines = f.readlines()
-            for line in reversed(lines[skip : skip + limit]):
-                try:
-                    emails.append(json.loads(line))
-                except:
-                    continue
-    return emails
+async def get_emails(limit: int = 50, skip: int = 0):
+    return db.get_emails(limit=limit, offset=skip)
+
+async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None):
+    global sync_status
+    sync_status["is_running"] = True
+    sync_status["progress"] = 0
+    sync_status["logs"] = [] # Clear old logs
+    
+    # Attach our log handler to the root logger while sync is running
+    root_logger = logging.getLogger()
+    root_logger.addHandler(ui_log_handler)
+    
+    try:
+        logging.info(f"Initiating sync for provider: {provider}")
+        from email_archiver.main import run_archiver_logic
+        
+        await asyncio.to_thread(run_archiver_logic, provider, incremental, classify, extract, since, after_id, query)
+        
+        logging.info("Synchronization completed successfully.")
+        sync_status["last_run"] = datetime.now().isoformat()
+    except Exception as e:
+        logging.error(f"Synchronization failed: {e}")
+    finally:
+        sync_status["is_running"] = False
+        sync_status["progress"] = 100
+        root_logger.removeHandler(ui_log_handler)
 
 @app.post("/api/sync")
 async def trigger_sync(request: SyncRequest, background_tasks: BackgroundTasks):
-    """Triggers an email synchronization process in the background."""
-    # This will call the main sync logic
-    # For now, just a placeholder
-    return {"message": f"Sync started for {request.provider}", "status": "running"}
+    if sync_status["is_running"]:
+        return {"message": "Sync already in progress"}
+    
+    background_tasks.add_task(
+        run_sync_task, 
+        request.provider, 
+        request.incremental, 
+        request.classify, 
+        request.extract,
+        request.since,
+        request.after_id,
+        request.query
+    )
+    return {"message": "Sync started"}
 
-# Serve UI Static Files
-if os.path.exists(UI_DIST_DIR):
-    app.mount("/", StaticFiles(directory=UI_DIST_DIR, html=True), name="static")
-else:
-    @app.get("/")
-    async def root():
-        return HTMLResponse("<h1>EESA Dashboard</h1><p>UI not built yet. Run 'npm run build' in the ui directory.</p>")
+@app.get("/api/status")
+async def get_status():
+    return sync_status
+
+if os.path.exists(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 def start_server(host="127.0.0.1", port=8000):
     import uvicorn

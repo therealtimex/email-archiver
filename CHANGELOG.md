@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-12-23
+
+### Added
+- **SQLite-Powered Persistence**: Replaced text-based metadata with a robust local SQLite database.
+  - Instant message tracking and skip logic using indexed `message_id`.
+  - Faster Web UI stats and history via optimized SQL queries.
+- **Local-First Sync Architecture**:
+  - **Auto-Indexing**: New logic automatically maps local files to the database, skipping downloads for found-on-disk content.
+  - **Local-Only Mode**: Added `--local-only` flag to index your archive without reaching out to email providers.
+- **Consolidated Checkpoints**: Sync checkpoints are now securely stored in SQLite, with automatic one-time migration from `checkpoint.json`.
+
+### Fixed
+- Improved reliability of the download loop when processing large batches.
+- Fixed potential data corruption when sync is interrupted.
+
 ## [0.6.0] - 2025-12-23
 
 ### Added

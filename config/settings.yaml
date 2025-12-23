@@ -1,74 +1,35 @@
-gmail:
-  # Path to the credentials.json file downloaded from Google Cloud Console
-  client_secrets_file: "config/client_secret.json"
-  # Scopes required for Gmail API
-  scopes: ["https://www.googleapis.com/auth/gmail.readonly"]
-
-m365:
-  # Azure AD Application Client ID
-  client_id: "YOUR_CLIENT_ID"
-  # Authority URL (common for multi-tenant, or specific tenant ID)
-  authority: "https://login.microsoftonline.com/common"
-  # Scopes required for Graph API
-  scopes: ["Mail.Read"]
-
 app:
-  # Base directory for downloads if not specified via CLI
-  download_dir: "downloads"
-  # Log file path
-  log_file: "sync.log"
-
-webhook:
-  # URL to POST the .eml file to
-  url: ""
-  enabled: false
-  # Optional headers (dictionary)
-  headers: {}
-
+  download_dir: downloads
+  log_file: sync.log
 classification:
-  # Enable AI-powered email classification
-  enabled: false
-  
-  # LLM Provider: "openai", "ollama", "lm_studio", "local"
-  provider: "openai"
-  
-  # Custom base URL for local LLM API (e.g., http://localhost:11434/v1)
-  # Default is OpenAI if not specified.
-  base_url: ""
-  
-  # OpenAI API key (or set via --openai-api-key CLI argument)
-  openai_api_key: ""
-  
-  # Model to use (gpt-4o-mini is fast and cheap)
-  model: "gpt-4o-mini"
-  
-  # Classification categories
+  base_url: ''
   categories:
-    - "important"
-    - "promotional"
-    - "transactional"
-    - "social"
-    - "newsletter"
-    - "spam"
-  
-  # Skip archiving emails in these categories
-  skip_categories:
-    - "promotional"
-    - "spam"
-  
-  # Save classification metadata to JSONL file
-  metadata_file: "email_metadata.jsonl"
-
-extraction:
-  # Enable Advanced AI Metadata Extraction (v0.5.0)
+  - important
+  - promotional
+  - transactional
+  - social
+  - newsletter
+  - spam
   enabled: false
-  
-  # Provider (defaults to classification's provider if not set)
-  # provider: "openai"
-  
-  # Model to use (gpt-4o-mini recommended)
-  # model: "gpt-4o-mini"
-  
-  # Specific extraction fields can be defined here if we add template support later
-
-
+  metadata_file: email_metadata.jsonl
+  model: gpt-4o-mini
+  openai_api_key: ''
+  provider: openai
+  skip_categories:
+  - promotional
+  - spam
+extraction:
+  enabled: false
+gmail:
+  client_secrets_file: config/client_secret.json
+  scopes:
+  - https://www.googleapis.com/auth/gmail.readonly
+m365:
+  authority: https://login.microsoftonline.com/common
+  client_id: YOUR_CLIENT_ID
+  scopes:
+  - Mail.Read
+webhook:
+  enabled: false
+  headers: {}
+  url: ''

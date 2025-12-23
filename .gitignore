@@ -64,3 +64,6 @@ htmlcov/
 # Temporary files
 *.tmp
 *.bak
+
+# Database
+*.sqlite
