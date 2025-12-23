@@ -6,9 +6,9 @@ import logging
 from datetime import datetime
 from tqdm import tqdm
 
-from core.utils import setup_logging, generate_filename, send_to_webhook
-from core.gmail_handler import GmailHandler
-from core.graph_handler import GraphHandler
+from email_archiver.core.utils import setup_logging, generate_filename, send_to_webhook
+from email_archiver.core.gmail_handler import GmailHandler
+from email_archiver.core.graph_handler import GraphHandler
 
 CONFIG_PATH = 'config/settings.yaml'
 CHECKPOINT_PATH = 'config/checkpoint.json'

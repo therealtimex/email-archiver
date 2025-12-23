@@ -15,22 +15,36 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 
 ### Installation
 
+**Using uvx (recommended - no installation needed):**
 ```bash
+uvx email-archiver --help
+```
+
+**Using pip:**
+```bash
+pip install email-archiver
+email-archiver --help
+```
+
+**From source:**
+```bash
+git clone https://github.com/therealtimex/email-archiver
 cd email-archiver
 uv sync
+uv run email-archiver --help
 ```
 
 ### Basic Usage
 
 ```bash
 # Download emails from Gmail since a specific date
-uv run main.py --provider gmail --since 2024-12-01
+email-archiver --provider gmail --since 2024-12-01
 
 # Incremental sync (resume from last checkpoint)
-uv run main.py --provider gmail --incremental
+email-archiver --provider gmail --incremental
 
 # With webhook integration
-uv run main.py --provider gmail --since 2024-12-23 \
+email-archiver --provider gmail --since 2024-12-23 \
   --webhook-url https://your-webhook.com/endpoint \
   --webhook-secret "Bearer your-token"
 ```
@@ -46,22 +60,22 @@ uv run main.py --provider gmail --since 2024-12-23 \
 
 ### Daily Email Backup
 ```bash
-uv run main.py --provider gmail --incremental
+email-archiver --provider gmail --incremental
 ```
 
 ### Archive Specific Emails
 ```bash
 # Emails with attachments
-uv run main.py --provider gmail --query "has:attachment" --since 2024-01-01
+email-archiver --provider gmail --query "has:attachment" --since 2024-01-01
 
 # From specific sender
-uv run main.py --provider gmail --query "from:important@example.com"
+email-archiver --provider gmail --query "from:important@example.com"
 ```
 
 ### Webhook Integration
 ```bash
 # Send emails to processing endpoint
-uv run main.py --provider gmail --incremental \
+email-archiver --provider gmail --incremental \
   --webhook-url https://api.example.com/emails \
   --webhook-secret "Bearer sk_live_abc123"
 ```
@@ -69,7 +83,7 @@ uv run main.py --provider gmail --incremental \
 ### Custom Download Directory
 ```bash
 # Save to specific folder
-uv run main.py --provider gmail --since 2024-12-01 \
+email-archiver --provider gmail --since 2024-12-01 \
   --download-dir /path/to/backup/emails
 ```
 
@@ -96,7 +110,7 @@ EESA can automatically POST downloaded `.eml` files to a webhook endpoint:
 
 **Via CLI:**
 ```bash
-uv run main.py --provider gmail --since 2024-12-01 \
+email-archiver --provider gmail --since 2024-12-01 \
   --webhook-url https://webhook.site/your-id \
   --webhook-secret "Bearer token"
 ```
@@ -128,7 +142,6 @@ See [API Reference](docs/API.md) for complete documentation.
 ## 🔧 Requirements
 
 - Python 3.9+
-- UV package manager (recommended) or pip
 - Gmail API credentials (for Gmail)
 - Azure AD app registration (for M365)
 
@@ -136,19 +149,20 @@ See [API Reference](docs/API.md) for complete documentation.
 
 ```
 email-archiver/
-├── main.py                 # CLI entry point
-├── core/                   # Core modules
-│   ├── gmail_handler.py    # Gmail API integration
-│   ├── graph_handler.py    # Microsoft Graph API integration
-│   └── utils.py            # Utility functions
+├── email_archiver/         # Main package
+│   ├── main.py            # CLI entry point
+│   └── core/              # Core modules
+│       ├── gmail_handler.py
+│       ├── graph_handler.py
+│       └── utils.py
 ├── config/
-│   ├── settings.yaml       # Configuration file
-│   ├── checkpoint.json     # Incremental sync state
-│   └── client_secret.json  # OAuth credentials (git-ignored)
-├── auth/                   # OAuth tokens (git-ignored)
-├── downloads/              # Downloaded .eml files
-├── docs/                   # Documentation
-└── pyproject.toml          # UV/Python project config
+│   ├── settings.yaml      # Configuration file
+│   ├── checkpoint.json    # Incremental sync state
+│   └── client_secret.json # OAuth credentials (git-ignored)
+├── auth/                  # OAuth tokens (git-ignored)
+├── downloads/             # Downloaded .eml files
+├── docs/                  # Documentation
+└── pyproject.toml         # Package configuration
 ```
 
 ## 🔒 Security
@@ -172,13 +186,14 @@ For issues or questions:
 1. Check the [documentation](docs/README.md)
 2. Review [examples](docs/EXAMPLES.md)
 3. Check logs in `sync.log`
+4. Open an issue on [GitHub](https://github.com/therealtimex/email-archiver/issues)
 
 ## 🎓 Examples
 
 ### Automation with Cron
 ```bash
 # Daily backup at 2 AM
-0 2 * * * cd /path/to/email-archiver && uv run main.py --provider gmail --incremental
+0 2 * * * email-archiver --provider gmail --incremental
 ```
 
 ### Python Integration
@@ -186,10 +201,19 @@ For issues or questions:
 import subprocess
 
 subprocess.run([
-    "uv", "run", "main.py",
+    "email-archiver",
     "--provider", "gmail",
     "--since", "2024-12-01"
-], cwd="/path/to/email-archiver")
+])
+```
+
+### Using uvx (no installation)
+```bash
+# Run directly without installing
+uvx email-archiver --provider gmail --since 2024-12-01
+
+# Works from any directory
+uvx email-archiver --help
 ```
 
 See [EXAMPLES.md](docs/EXAMPLES.md) for 21 more examples!
