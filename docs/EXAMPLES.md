@@ -108,11 +108,29 @@ email-archiver --provider gmail --incremental \
   --metadata-output data/email_analysis.jsonl
 ```
 
+### Example 12: Local LLM with Ollama
+
+```bash
+# Use Ollama for free, local classification
+# Ensure Ollama is running: ollama run llama3
+email-archiver --provider gmail --classify \
+  --llm-provider ollama --model "llama3" \
+  --skip-promotional
+```
+
+### Example 13: Local LLM with LM Studio
+
+```bash
+# Use LM Studio local server
+email-archiver --provider gmail --classify \
+  --llm-provider lm_studio --model "mistral-7b"
+```
+
 ---
 
 ## Webhook Integration Examples
 
-### Example 12: Basic Webhook
+### Example 14: Basic Webhook
 
 ```bash
 uv run main.py --provider gmail --since 2024-12-23 \

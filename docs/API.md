@@ -137,6 +137,22 @@ Path to a JSONL file where classification metadata will be saved.
 email-archiver --provider gmail --classify --metadata-output my_metadata.jsonl
 ```
 
+#### `--llm-provider {openai,ollama,lm_studio,local}`
+The LLM provider to use for classification.
+
+- `openai`: (Default) Uses OpenAI's API. Requires `OPENAI_API_KEY`.
+- `ollama`: Uses [Ollama](https://ollama.com/) (default URL: `http://localhost:11434/v1`).
+- `lm_studio`: Uses [LM Studio](https://lmstudio.ai/) (default URL: `http://localhost:1234/v1`).
+- `local`: Uses any OpenAI-compatible API (default URL: `http://localhost:8000/v1`).
+
+#### `--llm-base-url URL`
+Custom base URL for the LLM API. Use this if your local LLM is running on a non-standard port or hostname.
+
+**Example:**
+```bash
+email-archiver --provider gmail --classify --llm-provider local --llm-base-url http://192.168.1.50:8080/v1
+```
+
 ---
 
 ## Configuration File Reference

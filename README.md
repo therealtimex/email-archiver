@@ -7,6 +7,7 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 - **🔐 Secure OAuth2 Authentication** - Browser-based authentication with 2FA support
 - **📧 Multi-Provider Support** - Gmail and Microsoft 365 (Outlook)
 - **🧠 AI-Powered Classification** - Automatically categorize emails and skip promotions (v0.3.0+)
+- **🏠 Local LLM Support** - Connect to **Ollama**, **LM Studio**, or **llama.cpp** (v0.4.0+)
 - **🔍 Advanced Filtering** - Date-based, incremental sync, custom queries
 - **🪝 Webhook Integration** - Automatically send downloaded emails to webhook endpoints
 - **💾 Incremental Checkpointing** - Resume interrupted downloads
@@ -44,8 +45,11 @@ email-archiver --provider gmail --since 2024-12-01
 # Incremental sync (resume from last checkpoint)
 email-archiver --provider gmail --incremental
 
-# AI Classification (skip promotional emails)
+# AI Classification (OpenAI)
 email-archiver --provider gmail --classify --openai-api-key "sk-..." --skip-promotional
+
+# AI Classification (Local LLM via Ollama)
+email-archiver --provider gmail --classify --llm-provider ollama --model "llama3"
 
 # With webhook integration
 email-archiver --provider gmail --since 2024-12-23 \
@@ -144,6 +148,8 @@ webhook:
 | `--openai-api-key KEY` | OpenAI API key |
 | `--skip-promotional` | Skip promotional/social emails |
 | `--metadata-output PATH` | Path to save JSONL metadata |
+| `--llm-provider ID` | LLM provider (openai, ollama, etc.) |
+| `--llm-base-url URL` | Custom LLM API endpoint URL |
 
 See [API Reference](docs/API.md) for complete documentation.
 

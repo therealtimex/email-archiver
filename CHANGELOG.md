@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-23
+
+### Added
+- **Local LLM Support**: Support for local LLM providers via OpenAI-compatible APIs.
+  - Integration with **Ollama**, **LM Studio**, and **llama.cpp**.
+  - New CLI arguments: `--llm-provider` and `--llm-base-url`.
+  - Automatic detection of default local endpoints.
+  - No API key required for local providers (defaults to "not-needed").
+- **Flexible AI Infrastructure**: Decoupled classification from OpenAI-only dependency.
+- **Provider-specific Defaults**:
+  - Ollama: `http://localhost:11434/v1`
+  - LM Studio: `http://localhost:1234/v1`
+  - Local/llama.cpp: `http://localhost:8000/v1`
+
+### Changed
+- Refactored `EmailClassifier` to support generic OpenAI-compatible clients.
+- Updated documentation with local LLM setup guides and examples.
+
 ## [0.3.0] - 2025-12-23
 
 ### Added

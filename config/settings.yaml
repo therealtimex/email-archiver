@@ -29,6 +29,13 @@ classification:
   # Enable AI-powered email classification
   enabled: false
   
+  # LLM Provider: "openai", "ollama", "lm_studio", "local"
+  provider: "openai"
+  
+  # Custom base URL for local LLM API (e.g., http://localhost:11434/v1)
+  # Default is OpenAI if not specified.
+  base_url: ""
+  
   # OpenAI API key (or set via --openai-api-key CLI argument)
   openai_api_key: ""
   

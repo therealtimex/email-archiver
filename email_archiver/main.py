@@ -47,6 +47,8 @@ def main():
     parser.add_argument('--openai-api-key', help='OpenAI API key for classification')
     parser.add_argument('--skip-promotional', action='store_true', help='Skip promotional emails (requires --classify)')
     parser.add_argument('--metadata-output', help='Output file for classification metadata (JSONL format)')
+    parser.add_argument('--llm-provider', choices=['openai', 'ollama', 'lm_studio', 'local'], default='openai', help='LLM provider for classification (default: openai)')
+    parser.add_argument('--llm-base-url', help='Custom base URL for local LLM API (e.g., http://localhost:11434/v1)')
     
     args = parser.parse_args()
     
@@ -86,6 +88,12 @@ def main():
     
     if args.metadata_output:
         classification_config['metadata_file'] = args.metadata_output
+    
+    if args.llm_provider:
+        classification_config['provider'] = args.llm_provider
+        
+    if args.llm_base_url:
+        classification_config['base_url'] = args.llm_base_url
     
     # Initialize classifier
     config['classification'] = classification_config

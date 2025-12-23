@@ -25,19 +25,35 @@ class EmailClassifier:
         if not self.enabled:
             return
             
-        # OpenAI configuration
+        # Provider configuration
+        self.provider = self.config.get('provider', 'openai').lower()
+        self.base_url = self.config.get('base_url')
         api_key = self.config.get('api_key') or self.config.get('openai_api_key')
+        
+        # Default base URLs for common local providers if not specified
+        if not self.base_url:
+            if self.provider == 'ollama':
+                self.base_url = "http://localhost:11434/v1"
+            elif self.provider == 'lm_studio':
+                self.base_url = "http://localhost:1234/v1"
+            elif self.provider == 'local':
+                self.base_url = "http://localhost:8000/v1"
+
+        # Local providers often don't need an API key
+        if self.provider != 'openai' and not api_key:
+            api_key = "not-needed"
+
         if not api_key:
             logging.warning("Classification enabled but no API key provided. Disabling classification.")
             self.enabled = False
             return
             
-        self.client = openai.OpenAI(api_key=api_key)
+        self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url)
         self.model = self.config.get('model', 'gpt-4o-mini')
         self.categories = self.config.get('categories', self.DEFAULT_CATEGORIES)
         self.skip_categories = self.config.get('skip_categories', [])
         
-        logging.info(f"Email classification enabled with model: {self.model}")
+        logging.info(f"Email classification enabled with provider: {self.provider}, model: {self.model}")
     
     def should_skip(self, classification: Dict) -> bool:
         """
