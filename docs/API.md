@@ -99,6 +99,24 @@ uv run main.py --provider gmail --since 2024-12-01 \
   --webhook-secret "Bearer sk_live_abc123"
 ```
 
+#### `--download-dir PATH`
+Custom directory to save downloaded `.eml` files.
+
+**Overrides:** `config/settings.yaml` app.download_dir setting
+
+**Default:** `downloads/`
+
+**Example:**
+```bash
+# Save to custom directory
+uv run main.py --provider gmail --since 2024-12-01 \
+  --download-dir /mnt/backup/emails
+
+# Use relative path
+uv run main.py --provider gmail --incremental \
+  --download-dir ./archive/$(date +%Y-%m)
+```
+
 ---
 
 ## Configuration File Reference

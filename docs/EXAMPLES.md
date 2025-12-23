@@ -74,11 +74,27 @@ uv run main.py --provider gmail \
   --since 2024-11-23
 ```
 
+### Example 8: Custom Download Directory
+
+```bash
+# Save to specific backup location
+uv run main.py --provider gmail --since 2024-12-01 \
+  --download-dir /mnt/backup/emails/gmail
+
+# Organize by date
+uv run main.py --provider gmail --incremental \
+  --download-dir ./archive/$(date +%Y-%m-%d)
+
+# Network storage
+uv run main.py --provider m365 --since 2024-12-01 \
+  --download-dir /Volumes/NAS/email-backups
+```
+
 ---
 
 ## Webhook Integration Examples
 
-### Example 8: Basic Webhook
+### Example 9: Basic Webhook
 
 ```bash
 uv run main.py --provider gmail --since 2024-12-23 \

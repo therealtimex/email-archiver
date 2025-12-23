@@ -66,6 +66,13 @@ uv run main.py --provider gmail --incremental \
   --webhook-secret "Bearer sk_live_abc123"
 ```
 
+### Custom Download Directory
+```bash
+# Save to specific folder
+uv run main.py --provider gmail --since 2024-12-01 \
+  --download-dir /path/to/backup/emails
+```
+
 ## ⚙️ Configuration
 
 ### Gmail Setup
@@ -114,6 +121,7 @@ webhook:
 | `--query STRING` | Custom search query |
 | `--webhook-url URL` | Webhook endpoint URL |
 | `--webhook-secret SECRET` | Authorization header for webhook |
+| `--download-dir PATH` | Custom download directory |
 
 See [API Reference](docs/API.md) for complete documentation.
 

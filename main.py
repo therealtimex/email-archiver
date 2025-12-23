@@ -39,14 +39,16 @@ def main():
     # Webhook CLI overrides
     parser.add_argument('--webhook-url', help='Webhook URL to send .eml files to')
     parser.add_argument('--webhook-secret', help='Authorization secret for the webhook (sets Authorization header)')
+    # Download directory override
+    parser.add_argument('--download-dir', help='Directory to save downloaded .eml files (default: downloads/)')
     
     args = parser.parse_args()
     
     config = load_config(CONFIG_PATH)
     checkpoint = load_checkpoint(CHECKPOINT_PATH)
     
-    # Ensure download directory exists
-    download_dir = config.get('app', {}).get('download_dir', 'downloads')
+    # Ensure download directory exists (use CLI arg if provided, otherwise config)
+    download_dir = args.download_dir if args.download_dir else config.get('app', {}).get('download_dir', 'downloads')
     os.makedirs(download_dir, exist_ok=True)
     
     # Apply CLI webhook overrides
