@@ -65,7 +65,7 @@ class EmailClassifier:
         category = classification.get('category', '').lower()
         return category in [c.lower() for c in self.skip_categories]
     
-    def classify_email(self, email_obj: Message, subject: str = None, sender: str = None) -> Optional[Dict]:
+    def classify_email(self, email_obj: Message, subject: str = None, sender: str = None, to: str = None, cc: str = None) -> Optional[Dict]:
         """
         Classifies an email using OpenAI.
         Returns classification metadata or None if classification is disabled.
@@ -77,6 +77,8 @@ class EmailClassifier:
             # Extract email content
             subject = subject or email_obj.get('subject', 'No Subject')
             sender = sender or email_obj.get('from', 'Unknown')
+            to = to or email_obj.get('to', '')
+            cc = cc or email_obj.get('cc', '')
             
             # Get email body (prefer plain text)
             body = self._extract_body(email_obj)
@@ -85,7 +87,7 @@ class EmailClassifier:
             body_preview = body[:1000] if body else ""
             
             # Create classification prompt
-            prompt = self._create_classification_prompt(subject, sender, body_preview)
+            prompt = self._create_classification_prompt(subject, sender, to, cc, body_preview)
             
             # Call OpenAI
             response = self.client.chat.completions.create(
@@ -133,7 +135,7 @@ class EmailClassifier:
         
         return body.strip()
     
-    def _create_classification_prompt(self, subject: str, sender: str, body_preview: str) -> str:
+    def _create_classification_prompt(self, subject: str, sender: str, to: str, cc: str, body_preview: str) -> str:
         """
         Creates the classification prompt for OpenAI.
         """
@@ -144,6 +146,8 @@ class EmailClassifier:
 Email Details:
 - Subject: {subject}
 - From: {sender}
+- To: {to}
+- Cc: {cc}
 - Body Preview: {body_preview}
 
 Provide your response as JSON with the following structure:

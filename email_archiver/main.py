@@ -210,13 +210,16 @@ def main():
             email_obj = message_from_bytes(file_content)
             subject = email_obj.get('subject', 'No Subject')
             sender = email_obj.get('from', 'Unknown')
+            recipients_to = email_obj.get('to', '')
+            recipients_cc = email_obj.get('cc', '')
+            recipients_bcc = email_obj.get('bcc', '')
             
             # Classify email if enabled
             classification = None
             should_skip = False
             
             if classifier.enabled:
-                classification = classifier.classify_email(email_obj, subject, sender)
+                classification = classifier.classify_email(email_obj, subject, sender, recipients_to, recipients_cc)
                 if classification:
                     should_skip = classifier.should_skip(classification)
                     
@@ -256,6 +259,9 @@ def main():
                         "message_id": msg['id'],
                         "subject": subject,
                         "from": sender,
+                        "to": recipients_to,
+                        "cc": recipients_cc,
+                        "bcc": recipients_bcc,
                         "date": timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp,
                         "classification": classification,
                         "file_path": file_path
