@@ -9,6 +9,7 @@ from tqdm import tqdm
 from email_archiver.core.utils import setup_logging, generate_filename, send_to_webhook
 from email_archiver.core.gmail_handler import GmailHandler
 from email_archiver.core.graph_handler import GraphHandler
+from email_archiver.core.classifier import EmailClassifier
 
 CONFIG_PATH = 'config/settings.yaml'
 CHECKPOINT_PATH = 'config/checkpoint.json'
@@ -41,6 +42,11 @@ def main():
     parser.add_argument('--webhook-secret', help='Authorization secret for the webhook (sets Authorization header)')
     # Download directory override
     parser.add_argument('--download-dir', help='Directory to save downloaded .eml files (default: downloads/)')
+    # Classification arguments
+    parser.add_argument('--classify', action='store_true', help='Enable AI-powered email classification')
+    parser.add_argument('--openai-api-key', help='OpenAI API key for classification')
+    parser.add_argument('--skip-promotional', action='store_true', help='Skip promotional emails (requires --classify)')
+    parser.add_argument('--metadata-output', help='Output file for classification metadata (JSONL format)')
     
     args = parser.parse_args()
     
@@ -63,6 +69,34 @@ def main():
         # Assuming simple bearer or raw match, relying on user or generic header usage
         # Usually webhooks use a specific header, but standard is often Authorization
         webhook_config['headers']['Authorization'] = args.webhook_secret
+
+    # Apply CLI classification overrides
+    classification_config = config.get('classification', {})
+    if args.classify:
+        classification_config['enabled'] = True
+    
+    if args.openai_api_key:
+        classification_config['openai_api_key'] = args.openai_api_key
+    
+    if args.skip_promotional and args.classify:
+        if 'promotional' not in classification_config.get('skip_categories', []):
+            if 'skip_categories' not in classification_config:
+                classification_config['skip_categories'] = []
+            classification_config['skip_categories'].append('promotional')
+    
+    if args.metadata_output:
+        classification_config['metadata_file'] = args.metadata_output
+    
+    # Initialize classifier
+    config['classification'] = classification_config
+    classifier = EmailClassifier(config)
+    
+    # Open metadata file if classification is enabled
+    metadata_file_handle = None
+    if classifier.enabled:
+        metadata_path = classification_config.get('metadata_file', 'email_metadata.jsonl')
+        metadata_file_handle = open(metadata_path, 'a', encoding='utf-8')
+        logging.info(f"Classification metadata will be saved to: {metadata_path}")
 
     handler = None
     if args.provider == 'gmail':
@@ -167,6 +201,20 @@ def main():
             from email import message_from_bytes
             email_obj = message_from_bytes(file_content)
             subject = email_obj.get('subject', 'No Subject')
+            sender = email_obj.get('from', 'Unknown')
+            
+            # Classify email if enabled
+            classification = None
+            should_skip = False
+            
+            if classifier.enabled:
+                classification = classifier.classify_email(email_obj, subject, sender)
+                if classification:
+                    should_skip = classifier.should_skip(classification)
+                    
+                    if should_skip:
+                        logging.info(f"Skipping email '{subject[:50]}...' (category: {classification.get('category')})")
+                        continue
             
             timestamp = datetime.now()
             
@@ -194,6 +242,19 @@ def main():
                     f.write(file_content)
                 success_count += 1
                 
+                # Save classification metadata
+                if classifier.enabled and classification and metadata_file_handle:
+                    metadata_entry = {
+                        "message_id": msg['id'],
+                        "subject": subject,
+                        "from": sender,
+                        "date": timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp,
+                        "classification": classification,
+                        "file_path": file_path
+                    }
+                    metadata_file_handle.write(json.dumps(metadata_entry) + '\n')
+                    metadata_file_handle.flush()
+                
                 # Webhook integration
                 webhook_config = config.get('webhook', {})
                 if webhook_config.get('enabled'):
@@ -211,6 +272,10 @@ def main():
                     checkpoint['gmail']['last_internal_date'] = current_gmail_checkpoint
                 save_checkpoint(CHECKPOINT_PATH, checkpoint)
         
+    # Close metadata file
+    if metadata_file_handle:
+        metadata_file_handle.close()
+    
     # Final Checkpoint Save
     if args.provider == 'm365':
         checkpoint['m365']['last_received_time'] = current_m365_checkpoint

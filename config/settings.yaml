@@ -25,3 +25,31 @@ webhook:
   # Optional headers (dictionary)
   headers: {}
 
+classification:
+  # Enable AI-powered email classification
+  enabled: false
+  
+  # OpenAI API key (or set via --openai-api-key CLI argument)
+  openai_api_key: ""
+  
+  # Model to use (gpt-4o-mini is fast and cheap)
+  model: "gpt-4o-mini"
+  
+  # Classification categories
+  categories:
+    - "important"
+    - "promotional"
+    - "transactional"
+    - "social"
+    - "newsletter"
+    - "spam"
+  
+  # Skip archiving emails in these categories
+  skip_categories:
+    - "promotional"
+    - "spam"
+  
+  # Save classification metadata to JSONL file
+  metadata_file: "email_metadata.jsonl"
+
+

@@ -1,6 +1,6 @@
 [project]
 name = "email-archiver"
-version = "0.2.0"
+version = "0.3.0"
 description = "Email-to-EML Secure Archiver"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -32,7 +32,8 @@ dependencies = [
     "python-dateutil",
     "tqdm",
     "requests",
-    "pyyaml"
+    "pyyaml",
+    "openai>=1.0.0"
 ]
 
 [project.urls]

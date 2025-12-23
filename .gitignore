@@ -9,6 +9,10 @@ auth/
 # Downloaded emails (may contain sensitive data)
 downloads/
 
+# Classification metadata (may contain sensitive data)
+*.jsonl
+email_metadata.jsonl
+
 # Logs
 *.log
 sync.log

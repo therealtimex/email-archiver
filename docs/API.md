@@ -111,10 +111,30 @@ Custom directory to save downloaded `.eml` files.
 # Save to custom directory
 uv run main.py --provider gmail --since 2024-12-01 \
   --download-dir /mnt/backup/emails
+```
 
-# Use relative path
-uv run main.py --provider gmail --incremental \
-  --download-dir ./archive/$(date +%Y-%m)
+#### `--classify`
+Enable AI-powered email classification using OpenAI.
+
+**Example:**
+```bash
+email-archiver --provider gmail --classify --openai-api-key sk-...
+```
+
+#### `--openai-api-key KEY`
+OpenAI API key for classification. Overrides the value in `settings.yaml`.
+
+#### `--skip-promotional`
+Automatically skip downloading emails classified as "promotional" or "social". Requires `--classify`.
+
+#### `--metadata-output PATH`
+Path to a JSONL file where classification metadata will be saved.
+
+**Default:** `email_metadata.jsonl`
+
+**Example:**
+```bash
+email-archiver --provider gmail --classify --metadata-output my_metadata.jsonl
 ```
 
 ---

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-12-23
+
+### Added
+- **AI-Powered Email Classification**: Classify emails using OpenAI's GPT models
+  - `--classify` flag to enable classification
+  - `--openai-api-key` argument for API key
+  - `--skip-promotional` to automatically skip promotional emails
+  - `--metadata-output` to specify JSONL metadata file
+  - Configuration via `config/settings.yaml` classification section
+- **Smart Filtering**: Skip emails based on AI classification (promotional, spam, etc.)
+- **Metadata Export**: Save classification results to JSONL format
+  - Includes category, confidence, reasoning, tags, and importance
+  - Structured data for downstream processing
+- **New Classifier Module**: `email_archiver/core/classifier.py`
+  - Supports custom categories
+  - Configurable skip categories
+  - Extracts email body for better classification
+
+### Changed
+- Added `openai>=1.0.0` dependency
+- Updated configuration schema with classification settings
+- Enhanced download loop to support classification workflow
+
+### Fixed
+- Improved error handling for classification failures
+
 ## [0.2.0] - 2025-12-23
 
 ### Added

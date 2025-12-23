@@ -6,6 +6,7 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 
 - **🔐 Secure OAuth2 Authentication** - Browser-based authentication with 2FA support
 - **📧 Multi-Provider Support** - Gmail and Microsoft 365 (Outlook)
+- **🧠 AI-Powered Classification** - Automatically categorize emails and skip promotions (v0.3.0+)
 - **🔍 Advanced Filtering** - Date-based, incremental sync, custom queries
 - **🪝 Webhook Integration** - Automatically send downloaded emails to webhook endpoints
 - **💾 Incremental Checkpointing** - Resume interrupted downloads
@@ -42,6 +43,9 @@ email-archiver --provider gmail --since 2024-12-01
 
 # Incremental sync (resume from last checkpoint)
 email-archiver --provider gmail --incremental
+
+# AI Classification (skip promotional emails)
+email-archiver --provider gmail --classify --openai-api-key "sk-..." --skip-promotional
 
 # With webhook integration
 email-archiver --provider gmail --since 2024-12-23 \
@@ -136,6 +140,10 @@ webhook:
 | `--webhook-url URL` | Webhook endpoint URL |
 | `--webhook-secret SECRET` | Authorization header for webhook |
 | `--download-dir PATH` | Custom download directory |
+| `--classify` | Enable AI email classification |
+| `--openai-api-key KEY` | OpenAI API key |
+| `--skip-promotional` | Skip promotional/social emails |
+| `--metadata-output PATH` | Path to save JSONL metadata |
 
 See [API Reference](docs/API.md) for complete documentation.
 
@@ -181,7 +189,7 @@ This project follows the specification in `docs/SPECIFICATION.md`.
 See LICENSE file for details.
 
 ## 🆘 Support
-
+y
 For issues or questions:
 1. Check the [documentation](docs/README.md)
 2. Review [examples](docs/EXAMPLES.md)

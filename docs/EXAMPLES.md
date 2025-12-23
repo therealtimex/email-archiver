@@ -90,11 +90,29 @@ uv run main.py --provider m365 --since 2024-12-01 \
   --download-dir /Volumes/NAS/email-backups
 ```
 
+### Example 10: AI-Powered Classification
+
+```bash
+# Classify emails and skip promotions
+email-archiver --provider gmail --since 2024-12-01 \
+  --classify --openai-api-key "sk-..." \
+  --skip-promotional
+```
+
+### Example 11: Comprehensive Metadata Export
+
+```bash
+# Export metadata to a custom file
+email-archiver --provider gmail --incremental \
+  --classify \
+  --metadata-output data/email_analysis.jsonl
+```
+
 ---
 
 ## Webhook Integration Examples
 
-### Example 9: Basic Webhook
+### Example 12: Basic Webhook
 
 ```bash
 uv run main.py --provider gmail --since 2024-12-23 \
