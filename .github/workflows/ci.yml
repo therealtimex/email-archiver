@@ -36,4 +36,4 @@ jobs:
       
       - name: Test CLI help
         run: |
-          uv run main.py --help
+          uv run email-archiver --help
