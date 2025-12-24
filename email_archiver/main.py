@@ -74,13 +74,9 @@ def main():
     
     # Handle UI early
     if args.ui:
-        try:
-            from email_archiver.server.app import start_server
-            start_server()
-            return
-        except ImportError:
-            logging.error("UI dependencies not found. Install with: uv sync --extra ui (or pip install 'email-archiver[ui]')")
-            return
+        from email_archiver.server.app import start_server
+        start_server()
+        return
 
     if not args.provider:
         parser.error("--provider is required unless using --ui")

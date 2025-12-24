@@ -1,6 +1,6 @@
 [project]
 name = "email-archiver"
-version = "0.7.2"
+version = "0.7.3"
 description = "Email-to-EML Secure Archiver"
 readme = "README.md"
 requires-python = ">=3.9"

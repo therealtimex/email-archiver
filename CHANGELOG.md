@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2025-12-23
+
+### Changed
+- **Dependencies**: Removed internal `ImportError` guards for UI components; they are now strictly mandatory core dependencies. This ensures that tools like `uvx` always include the necessary dashboard requirements.
+
 ## [0.7.2] - 2025-12-23
 
 ### Changed
