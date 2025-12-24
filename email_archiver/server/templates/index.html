@@ -99,7 +99,7 @@
                         <h1 class="text-xl font-bold text-gradient"
                             x-text="activeTab === 'dashboard' ? 'Archive Intelligence' : 'System Configuration'"></h1>
                         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest"
-                            x-text="activeTab === 'dashboard' ? 'Dashboard v0.7.6' : 'Control Center'"></p>
+                            x-text="activeTab === 'dashboard' ? 'Dashboard v' + appVersion : 'Control Center'"></p>
                     </div>
                 </div>
 
@@ -834,6 +834,7 @@
                     classification: { enabled: false, provider: 'openai', model: '', openai_api_key: '', base_url: '' },
                     extraction: { enabled: false }
                 },
+                appVersion: '...',
                 isSaving: false,
                 authStatus: { gmail: false, m365: false },
                 authFlow: null,
@@ -842,6 +843,7 @@
                 gmailSecretJson: '',
                 m365SecretJson: '',
                 init() {
+                    this.fetchVersion();
                     this.resetAndFetch();
                     this.fetchSettings();
                     this.checkAuthStatus();
@@ -998,6 +1000,13 @@
                         console.error('Save error:', e);
                         this.isSaving = false;
                     }
+                },
+                async fetchVersion() {
+                    try {
+                        const res = await fetch('/api/version');
+                        const data = await res.json();
+                        this.appVersion = data.version;
+                    } catch (e) { }
                 },
                 async triggerSync() {
                     try {

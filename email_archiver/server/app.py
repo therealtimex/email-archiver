@@ -79,6 +79,12 @@ class AuthRequest(BaseModel):
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/api/version")
+async def get_version():
+    """Returns the current project version."""
+    from email_archiver import __version__
+    return {"version": __version__}
+
 @app.get("/api/settings")
 async def get_settings():
     """Reads the current settings from settings.yaml."""
