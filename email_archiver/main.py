@@ -401,10 +401,22 @@ def run_archiver_logic_internal(
             
         msg_id = msg['id']
         
-        # Check database early for efficiency
-        if db.email_exists(msg_id):
-            logging.debug(f"Email {msg_id} already in database, skipping.")
-            continue
+        # Smart Check: Handle edge case where folder changed or file was deleted
+        existing_record = db.get_email(msg_id)
+        if existing_record:
+            current_file_path = existing_record.get('file_path')
+            if current_file_path and os.path.exists(current_file_path):
+                logging.debug(f"Email {msg_id} already archived at {current_file_path}, skipping.")
+                continue
+            else:
+                # File is in DB but missing from disk at the recorded path
+                # Maybe it exists in the NEW target_download_dir?
+                # We'll use the expected filename to check
+                
+                # We need subject and timestamp to generate the expected filename
+                # If we don't have them yet, we'll just fall through to the download/index logic
+                # which will eventually record/update it.
+                logging.info(f"Email {msg_id} in DB but missing from disk. Re-processing...")
 
         file_content = None
         metadata = {} # Initialize as dict to avoid NoneType errors
@@ -487,18 +499,22 @@ def run_archiver_logic_internal(
             
             if os.path.exists(file_path):
                 logging.info(f"Skipping {filename}, already exists.")
-                # Auto-Index: If file exists but wasn't in DB, record it now
-                db.record_email(
-                    message_id=msg['id'],
-                    provider=provider,
-                    subject=subject,
-                    sender=sender,
-                    recipients=f"{recipients_to}, {recipients_cc}".strip(", "),
-                    received_at=timestamp,
-                    file_path=file_path,
-                    classification=classification,
-                    extraction=extraction
-                )
+                # Auto-Index: If record exists but path changed, update it.
+                # If record doesn't exist, create it.
+                if db.get_email(msg['id']):
+                    db.update_email_path(msg['id'], file_path)
+                else:
+                    db.record_email(
+                        message_id=msg['id'],
+                        provider=provider,
+                        subject=subject,
+                        sender=sender,
+                        recipients=f"{recipients_to}, {recipients_cc}".strip(", "),
+                        received_at=timestamp,
+                        file_path=file_path,
+                        classification=classification,
+                        extraction=extraction
+                    )
             else:
                 with open(file_path, 'wb') as f:
                     f.write(file_content)

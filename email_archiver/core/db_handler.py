@@ -169,6 +169,39 @@ class DBHandler:
             logging.error(f"Error getting checkpoint for {provider}: {e}")
             return None
 
+    def get_email(self, message_id):
+        """Retrieves a specific email record by its message_id."""
+        try:
+            with self._get_connection() as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM emails WHERE message_id = ?', (message_id,))
+                row = cursor.fetchone()
+                if row:
+                    email_data = dict(row)
+                    if email_data["classification"]:
+                        try: email_data["classification"] = json.loads(email_data["classification"])
+                        except: pass
+                    if email_data["extraction"]:
+                        try: email_data["extraction"] = json.loads(email_data["extraction"])
+                        except: pass
+                    return email_data
+        except Exception as e:
+            logging.error(f"Error fetching email {message_id}: {e}")
+        return None
+
+    def update_email_path(self, message_id, new_path):
+        """Updates the stored file path for an email."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('UPDATE emails SET file_path = ? WHERE message_id = ?', (new_path, message_id))
+                conn.commit()
+                return True
+        except Exception as e:
+            logging.error(f"Error updating path for email {message_id}: {e}")
+            return False
+
     def save_checkpoint(self, provider, value):
         """Saves a sync checkpoint value for a provider."""
         try:

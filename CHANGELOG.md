@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.9] - 2025-12-23
+
+### Added
+- **Smart Sync**: Implemented dynamic path handling to support changing the download folder. The app now verifies file existence and automatically re-downloads or updates paths if the archive location is moved.
+
 ## [0.7.8] - 2025-12-23
 
 ### Fixed
