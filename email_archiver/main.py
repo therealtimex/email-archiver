@@ -400,23 +400,6 @@ def run_archiver_logic_internal(
             break
             
         msg_id = msg['id']
-        
-        # Smart Check: Handle edge case where folder changed or file was deleted
-        existing_record = db.get_email(msg_id)
-        if existing_record:
-            current_file_path = existing_record.get('file_path')
-            if current_file_path and os.path.exists(current_file_path):
-                logging.debug(f"Email {msg_id} already archived at {current_file_path}, skipping.")
-                continue
-            else:
-                # File is in DB but missing from disk at the recorded path
-                # Maybe it exists in the NEW target_download_dir?
-                # We'll use the expected filename to check
-                
-                # We need subject and timestamp to generate the expected filename
-                # If we don't have them yet, we'll just fall through to the download/index logic
-                # which will eventually record/update it.
-                logging.info(f"Email {msg_id} in DB but missing from disk. Re-processing...")
 
         file_content = None
         metadata = {} # Initialize as dict to avoid NoneType errors

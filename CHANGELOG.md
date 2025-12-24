@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-12-23
+
+### Fixed
+- **Path Migration**: Fixed a regression where changing the download folder would not correctly re-populate the new folder. The app now correctly identifies missing files within the current sync scope.
+
 ## [0.7.9] - 2025-12-23
 
 ### Added
