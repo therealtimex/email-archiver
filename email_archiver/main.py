@@ -79,13 +79,14 @@ def main():
     parser.add_argument('--extract', action='store_true', help='Enable advanced metadata extraction (v0.5.0+)')
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
+    parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
     
     args = parser.parse_args()
     
     # Handle UI early
     if args.ui:
         from email_archiver.server.app import start_server
-        start_server()
+        start_server(port=args.port)
         return
 
     if not args.provider:
@@ -128,6 +129,15 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
         return
 
     checkpoint = load_checkpoint(CHECKPOINT_PATH)
+    
+    # Helper to check cancellation from UI
+    def check_ui_cancellation():
+        try:
+            from email_archiver.server.app import sync_status
+            return sync_status.get("is_cancelled", False)
+        except:
+            return False
+
     run_archiver_logic_internal(
         provider=provider,
         incremental=incremental,
@@ -137,7 +147,8 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
         after_id=after_id,
         query=query,
         config=config,
-        checkpoint=checkpoint
+        checkpoint=checkpoint,
+        check_cancellation=check_ui_cancellation
     )
 
 def run_archiver_logic_internal(
@@ -159,8 +170,14 @@ def run_archiver_logic_internal(
     config=None,
     checkpoint=None,
     db_path=None,
-    local_only=False
+    local_only=False,
+    check_cancellation=None
 ):
+    # Default 'since' to today if not provided to avoid downloading everything
+    if not since and not after_id and not query and not local_only:
+        since = datetime.now().strftime('%Y-%m-%d')
+        logging.info(f"No date filter provided. Defaulting to sync from: {since}")
+
     # Initialize DB
     db = DBHandler(db_path) if db_path else DBHandler()
     
@@ -372,6 +389,11 @@ def run_archiver_logic_internal(
     current_m365_checkpoint = db.get_checkpoint('m365') or checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
 
     for i, msg in enumerate(tqdm(ids_to_fetch)):
+        # Check for cancellation
+        if check_cancellation and check_cancellation():
+            logging.info("Sync cancelled by user. Stopping loop...")
+            break
+            
         msg_id = msg['id']
         
         # Check database early for efficiency

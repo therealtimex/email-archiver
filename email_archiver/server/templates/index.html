@@ -209,19 +209,22 @@
                         <div class="flex flex-col items-center gap-6">
                             <!-- Big Sync Button -->
                             <div class="relative group">
-                                <button @click="triggerSync()" :disabled="status.is_running"
-                                    class="w-40 h-40 rounded-full glass border-2 border-primary/20 flex flex-col items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 disabled:scale-95 group relative z-10 overflow-hidden">
+                                <button @click="status.is_running ? stopSync() : triggerSync()"
+                                    class="w-40 h-40 rounded-full glass border-2 border-primary/20 flex flex-col items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 group relative z-10 overflow-hidden">
 
                                     <div x-show="status.is_running"
                                         class="absolute inset-0 border-2 border-primary animate-[spin_2s_linear_infinite] border-t-transparent rounded-full">
                                     </div>
 
                                     <div class="text-xl font-bold tracking-widest text-white"
-                                        x-text="status.is_running ? 'ACTIVE' : 'SYNC'">SYNC</div>
+                                        x-text="status.is_running ? (status.is_cancelled ? 'HALTING' : 'STOP') : 'SYNC'">
+                                        SYNC</div>
                                     <div class="text-[9px] text-slate-500 mt-1 uppercase"
-                                        x-text="status.is_running ? 'Processing' : 'Initiate Task'">Initiate Task</div>
+                                        x-text="status.is_running ? (status.is_cancelled ? 'Stopping...' : 'Abort Sync') : 'Initiate Task'">
+                                        Initiate Task</div>
                                     <div class="mt-3 text-2xl transition-transform"
-                                        :class="status.is_running ? 'rotate-180' : 'group-hover:rotate-12'">🔄</div>
+                                        :class="status.is_running ? 'rotate-180 text-red-400' : 'group-hover:rotate-12'">
+                                        🔄</div>
                                 </button>
                                 <!-- Glow effect -->
                                 <div class="absolute inset-0 bg-primary/20 blur-3xl -z-0 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -805,7 +808,7 @@
                     incremental: true,
                     classify: true,
                     extract: false,
-                    since: '',
+                    since: new Date().toISOString().split('T')[0],
                     after_id: '',
                     query: ''
                 },
@@ -989,6 +992,12 @@
                         });
                         this.status.is_running = true;
                         this.status.logs = ["Initiating background task..."];
+                    } catch (e) { }
+                },
+                async stopSync() {
+                    try {
+                        await fetch('/api/sync/stop', { method: 'POST' });
+                        this.status.is_cancelled = true;
                     } catch (e) { }
                 },
                 formatDate(dateStr) {

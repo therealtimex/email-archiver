@@ -43,6 +43,7 @@ db = DBHandler()
 # Global state for sync progress
 sync_status = {
     "is_running": False,
+    "is_cancelled": False,
     "last_run": None,
     "current_task": None,
     "progress": 0,
@@ -198,6 +199,7 @@ async def get_emails(limit: int = 50, skip: int = 0, search: Optional[str] = Non
 async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None):
     global sync_status
     sync_status["is_running"] = True
+    sync_status["is_cancelled"] = False # Reset cancellation state
     sync_status["progress"] = 0
     sync_status["logs"] = [] # Clear old logs
     
@@ -236,6 +238,16 @@ async def trigger_sync(request: SyncRequest, background_tasks: BackgroundTasks):
         request.query
     )
     return {"message": "Sync started"}
+
+@app.post("/api/sync/stop")
+async def stop_sync():
+    """Signals the running sync task to stop."""
+    global sync_status
+    if sync_status["is_running"]:
+        sync_status["is_cancelled"] = True
+        logging.info("Cancellation requested by user.")
+        return {"message": "Cancellation requested"}
+    return {"message": "No sync is running"}
 
 @app.get("/api/status")
 async def get_status():

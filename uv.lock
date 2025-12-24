@@ -372,45 +372,40 @@ wheels = [
 
 [[package]]
 name = "email-archiver"
-version = "0.7.0"
+version = "0.7.4"
 source = { editable = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "google-api-python-client" },
     { name = "google-auth-oauthlib" },
+    { name = "jinja2" },
     { name = "msal" },
     { name = "openai" },
     { name = "python-dateutil" },
+    { name = "python-multipart", version = "0.0.20", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "python-multipart", version = "0.0.21", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "tqdm" },
-]
-
-[package.optional-dependencies]
-ui = [
-    { name = "fastapi" },
-    { name = "jinja2" },
-    { name = "python-multipart", version = "0.0.20", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "python-multipart", version = "0.0.21", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "uvicorn", version = "0.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "uvicorn", version = "0.40.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", marker = "extra == 'ui'" },
+    { name = "fastapi" },
     { name = "google-api-python-client" },
     { name = "google-auth-oauthlib" },
-    { name = "jinja2", marker = "extra == 'ui'" },
+    { name = "jinja2" },
     { name = "msal" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "python-dateutil" },
-    { name = "python-multipart", marker = "extra == 'ui'" },
+    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "tqdm" },
-    { name = "uvicorn", marker = "extra == 'ui'" },
+    { name = "uvicorn" },
 ]
-provides-extras = ["ui"]
 
 [[package]]
 name = "exceptiongroup"
