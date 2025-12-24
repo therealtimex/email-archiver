@@ -17,10 +17,40 @@ class GmailHandler:
         self.service = None
         self.token_path = 'auth/gmail_token.json'
         
+    def get_auth_url(self):
+        """Returns the authorization URL to be shown in the UI."""
+        scopes = self.config['gmail']['scopes']
+        client_secrets = self.config['gmail']['client_secrets_file']
+        if not os.path.exists(client_secrets):
+            raise FileNotFoundError(f"Client secrets file not found at: {client_secrets}")
+        
+        flow = InstalledAppFlow.from_client_secrets_file(client_secrets, scopes)
+        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        return auth_url
+
+    def submit_code(self, code):
+        """Validates the code and saves the token."""
+        scopes = self.config['gmail']['scopes']
+        client_secrets = self.config['gmail']['client_secrets_file']
+        flow = InstalledAppFlow.from_client_secrets_file(client_secrets, scopes)
+        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+        flow.fetch_token(code=code)
+        self.creds = flow.credentials
+        
+        # Save the credentials
+        os.makedirs(os.path.dirname(self.token_path), exist_ok=True)
+        with open(self.token_path, 'w') as token:
+            token.write(self.creds.to_json())
+        os.chmod(self.token_path, 0o600)
+        
+        self.service = build('gmail', 'v1', credentials=self.creds)
+        return True
+
     def authenticate(self):
         """
         Authenticates against Gmail API using OAuth2.
-        Loads existing token or launches browser flow.
+        Loads existing token or launches browser flow (interactive).
         """
         scopes = self.config['gmail']['scopes']
         
@@ -36,30 +66,24 @@ class GmailHandler:
                     self.creds = None
             
             if not self.creds:
-                client_secrets = self.config['gmail']['client_secrets_file']
-                if not os.path.exists(client_secrets):
-                    raise FileNotFoundError(f"Client secrets file not found at: {client_secrets}")
+                # If we are in the UI (started via FastAPI), we shouldn't do input()
+                # But for CLI users, we maintain compatibility
+                import sys
+                if not sys.stdin.isatty():
+                    raise Exception("Authentication required. Please use the Web UI to authorize.")
                 
-                flow = InstalledAppFlow.from_client_secrets_file(client_secrets, scopes)
-                flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
-                
-                auth_url, _ = flow.authorization_url(prompt='consent')
-                
+                auth_url = self.get_auth_url()
                 print('-' * 80)
                 print(f'Please visit this URL to authorize the application:\n{auth_url}')
                 print('-' * 80)
                 
                 code = input('Enter the authorization code: ')
-                flow.fetch_token(code=code)
-                self.creds = flow.credentials
-                
-            # Save the credentials for the next run
-            with open(self.token_path, 'w') as token:
-                token.write(self.creds.to_json())
-            
-            # Secure the token file
-            os.chmod(self.token_path, 0o600)
-            
+                self.submit_code(code)
+            else:
+                # Refreshed successfully
+                with open(self.token_path, 'w') as token:
+                    token.write(self.creds.to_json())
+
         self.service = build('gmail', 'v1', credentials=self.creds)
         logging.info("Gmail authentication successful.")
 

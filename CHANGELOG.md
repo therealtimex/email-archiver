@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4] - 2025-12-23
+
+### Added
+- **UI-Driven Onboarding**: New dashboard experience for first-time users to set up providers.
+- **Browser-Based Authentication**: Support for OAuth (Gmail) and Device Flow (M365) directly in the UI.
+- **Secret Management**: Upload and manage `credentials.json` or MSAL configs via the dashboard.
+
+### Fixed
+- **Robust Path Handling**: Fixed crashes when running via `uvx` in directories without existing configuration.
+
 ## [0.7.3] - 2025-12-23
 
 ### Changed

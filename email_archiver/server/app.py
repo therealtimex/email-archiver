@@ -69,6 +69,11 @@ class SyncRequest(BaseModel):
     after_id: Optional[str] = None
     query: Optional[str] = None
 
+class AuthRequest(BaseModel):
+    provider: str
+    code: Optional[str] = None
+    flow: Optional[Dict[str, Any]] = None
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -76,25 +81,111 @@ async def read_root(request: Request):
 @app.get("/api/settings")
 async def get_settings():
     """Reads the current settings from settings.yaml."""
-    if os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, 'r') as f:
-                return yaml.safe_load(f)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error reading config: {e}")
-    return {}
+    from email_archiver.main import load_config
+    return load_config(CONFIG_PATH)
 
 @app.post("/api/settings")
 async def update_settings(new_settings: Dict[str, Any]):
     """Updates the settings.yaml file."""
     try:
-        # Merge or overwrite? For simplicity in MVP, we overwrite 
-        # but we could also deep merge.
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        
         with open(CONFIG_PATH, 'w') as f:
             yaml.dump(new_settings, f, default_flow_style=False)
         return {"message": "Settings updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving config: {e}")
+
+@app.get("/api/auth/status")
+async def get_auth_status():
+    """Checks if providers are authenticated."""
+    gmail_token = 'auth/gmail_token.json'
+    # For M365 it's often m365_token.json but check GraphHandler
+    m365_token = 'auth/m365_token.json'
+    
+    return {
+        "gmail": os.path.exists(gmail_token),
+        "m365": os.path.exists(m365_token)
+    }
+
+@app.post("/api/auth/init")
+async def init_auth(request: AuthRequest):
+    """Initiates the auth flow for a provider."""
+    from email_archiver.main import load_config
+    config = load_config(CONFIG_PATH)
+    
+    if request.provider == 'gmail':
+        from email_archiver.core.gmail_handler import GmailHandler
+        try:
+            handler = GmailHandler(config)
+            url = handler.get_auth_url()
+            return {"url": url}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+            
+    elif request.provider == 'm365':
+        from email_archiver.core.graph_handler import GraphHandler
+        try:
+            handler = GraphHandler(config)
+            flow = handler.initiate_device_flow()
+            return {"flow": flow}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+            
+    raise HTTPException(status_code=400, detail="Invalid provider")
+
+@app.post("/api/auth/complete")
+async def complete_auth(request: AuthRequest):
+    """Completes the auth flow."""
+    from email_archiver.main import load_config
+    config = load_config(CONFIG_PATH)
+    
+    if request.provider == 'gmail':
+        if not request.code:
+            raise HTTPException(status_code=400, detail="Code is required for Gmail")
+        from email_archiver.core.gmail_handler import GmailHandler
+        try:
+            handler = GmailHandler(config)
+            handler.submit_code(request.code)
+            return {"message": "Gmail authenticated successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+            
+    elif request.provider == 'm365':
+        if not request.flow:
+            raise HTTPException(status_code=400, detail="Flow data is required for M365")
+        from email_archiver.core.graph_handler import GraphHandler
+        try:
+            handler = GraphHandler(config)
+            success = await asyncio.to_thread(handler.complete_device_flow, request.flow)
+            if success:
+                return {"message": "M365 authenticated successfully"}
+            else:
+                raise HTTPException(status_code=400, detail="M365 authentication failed or timed out")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+            
+    raise HTTPException(status_code=400, detail="Invalid provider")
+
+@app.post("/api/secrets")
+async def save_secrets(provider: str, data: Dict[str, Any]):
+    """Saves provider secrets (like credentials.json) to the auth/ directory."""
+    try:
+        os.makedirs('auth', exist_ok=True)
+        if provider == 'gmail':
+            path = 'auth/credentials.json'
+            with open(path, 'w') as f:
+                json.dump(data, f, indent=2)
+            return {"message": "Gmail credentials saved"}
+        elif provider == 'm365':
+            path = 'auth/config.json'
+            with open(path, 'w') as f:
+                json.dump(data, f, indent=2)
+            return {"message": "M365 config saved"}
+        raise HTTPException(status_code=400, detail="Invalid provider for secrets")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/stats")
 async def get_stats():

@@ -123,7 +123,7 @@
                     <h1 class="text-2xl font-bold text-gradient"
                         x-text="activeTab === 'dashboard' ? 'Archive Intelligence' : 'System Configuration'"></h1>
                     <p class="text-sm text-slate-500"
-                        x-text="activeTab === 'dashboard' ? 'System Dashboard v0.7.2' : 'Global Settings & AI Model Control'">
+                        x-text="activeTab === 'dashboard' ? 'System Dashboard v0.7.4' : 'Global Settings & AI Model Control'">
                     </p>
                 </div>
                 <div class="flex gap-4 items-center">
@@ -143,6 +143,33 @@
 
             <!-- Dashboard View -->
             <div x-show="activeTab === 'dashboard'" class="flex-1 overflow-y-auto space-y-8 pr-2">
+
+                <!-- Connection Wizard / Welcome -->
+                <div x-show="!authStatus.gmail && !authStatus.m365 && stats.total_archived === 0"
+                    class="glass p-8 rounded-3xl border border-indigo-500/20 bg-indigo-500/5 mb-8 animate-in slide-in-from-top duration-500">
+                    <div class="flex flex-col md:flex-row gap-8 items-center">
+                        <div class="flex-1 space-y-4">
+                            <h2 class="text-2xl font-bold text-white">Welcome to Email Archiver</h2>
+                            <p class="text-slate-400 text-sm leading-relaxed">Connect your first email provider to start
+                                building your intelligence archive. No technical setup required.</p>
+                            <div class="flex gap-4">
+                                <button @click="startAuth('gmail')"
+                                    class="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-2 border border-white/5">
+                                    <span>📩</span> Connect Gmail
+                                </button>
+                                <button @click="startAuth('m365')"
+                                    class="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-2 border border-white/5">
+                                    <span>☁️</span> Connect Microsoft 365
+                                </button>
+                            </div>
+                        </div>
+                        <div
+                            class="w-24 h-24 bg-indigo-500/10 rounded-full flex items-center justify-center text-4xl animate-bounce">
+                            🚀
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Stats Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="glass p-6 rounded-2xl">
@@ -525,6 +552,117 @@
                         Save Changes
                     </button>
                 </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pb-12">
+                    <!-- Google Secrets -->
+                    <div class="glass p-8 rounded-3xl space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-sm font-bold text-slate-300">Google Client Secrets</h4>
+                            <span :class="authStatus.gmail ? 'text-green-400' : 'text-slate-500'"
+                                class="text-[10px] font-bold uppercase"
+                                x-text="authStatus.gmail ? 'Connected' : 'Disconnected'"></span>
+                        </div>
+                        <p class="text-[10px] text-slate-500">Paste your <code>credentials.json</code> content here to
+                            enable Gmail sync.</p>
+                        <textarea x-model="gmailSecretJson" rows="4"
+                            class="w-full bg-slate-900/50 border border-white/5 rounded-xl p-3 text-[10px] font-mono text-slate-300 focus:outline-none focus:border-primary/50 transition-all"
+                            placeholder='{ "installed": { ... } }'></textarea>
+                        <button @click="saveSecret('gmail')" :disabled="!gmailSecretJson"
+                            class="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold text-slate-300 transition-all border border-white/5">
+                            Update Gmail Secrets
+                        </button>
+                    </div>
+
+                    <!-- M365 Secrets -->
+                    <div class="glass p-8 rounded-3xl space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-sm font-bold text-slate-300">M365 Configuration</h4>
+                            <span :class="authStatus.m365 ? 'text-green-400' : 'text-slate-500'"
+                                class="text-[10px] font-bold uppercase"
+                                x-text="authStatus.m365 ? 'Connected' : 'Disconnected'"></span>
+                        </div>
+                        <p class="text-[10px] text-slate-500">Paste your MSAL <code>config.json</code> or leave empty if
+                            using settings above.</p>
+                        <textarea x-model="m365SecretJson" rows="4"
+                            class="w-full bg-slate-900/50 border border-white/5 rounded-xl p-3 text-[10px] font-mono text-slate-300 focus:outline-none focus:border-indigo-500/50 transition-all"
+                            placeholder='{ "client_id": "...", "authority": "..." }'></textarea>
+                        <button @click="saveSecret('m365')" :disabled="!m365SecretJson"
+                            class="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold text-slate-300 transition-all border border-white/5">
+                            Update M365 Secrets
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auth Flow Modal -->
+            <div x-show="authFlow" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div @click="authFlow = null" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
+                <div
+                    class="relative w-full max-w-md glass rounded-3xl p-8 shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white"
+                            x-text="'Connect ' + (authFlow?.provider === 'gmail' ? 'Gmail' : 'Microsoft 365')"></h3>
+                        <button @click="authFlow = null" class="text-slate-500 hover:text-white">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Gmail Flow -->
+                    <template x-if="authFlow?.provider === 'gmail'">
+                        <div class="space-y-6">
+                            <div class="space-y-2">
+                                <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 1:
+                                    Authorization</p>
+                                <p class="text-sm text-slate-400">Open the link below to authorize access to your Gmail
+                                    account:</p>
+                                <a :href="authFlow.url" target="_blank"
+                                    class="block p-4 bg-white/5 rounded-2xl text-primary text-[10px] font-mono break-all border border-primary/20 hover:bg-primary/5 transition-all"
+                                    x-text="authFlow.url"></a>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 2: Validation
+                                </p>
+                                <p class="text-sm text-slate-400">Paste the authorization code provided by Google below:
+                                </p>
+                                <input type="text" x-model="authCode" placeholder="Paste code here..."
+                                    class="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary transition-all">
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- M365 Flow -->
+                    <template x-if="authFlow?.provider === 'm365'">
+                        <div class="space-y-6">
+                            <div class="space-y-4">
+                                <p class="text-sm text-slate-400" x-text="authFlow.flow.message"></p>
+                                <div
+                                    class="p-6 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-center shadow-inner">
+                                    <span class="text-3xl font-mono font-bold text-indigo-400 tracking-[0.2em]"
+                                        x-text="authFlow.flow.user_code"></span>
+                                </div>
+                                <div class="flex items-start gap-3 p-4 bg-white/5 rounded-xl border border-white/5">
+                                    <span class="text-xl">ℹ️</span>
+                                    <p class="text-[11px] text-slate-500 leading-relaxed">Once you enter the code in the
+                                        Microsoft portal, this dashboard will automatically detect the connection.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="flex justify-end gap-3 mt-10">
+                        <button @click="authFlow = null"
+                            class="px-6 py-2 glass rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
+                        <button @click="completeAuth()" :disabled="isAuthenticating"
+                            class="px-8 py-2 bg-primary rounded-xl text-xs font-bold text-white shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2">
+                            <span x-show="isAuthenticating"
+                                class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                            <span x-text="isAuthenticating ? 'Validating...' : 'Complete Connection'"></span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Email Detail Modal -->
@@ -678,9 +816,16 @@
                     extraction: { enabled: false }
                 },
                 isSaving: false,
+                authStatus: { gmail: false, m365: false },
+                authFlow: null,
+                authCode: '',
+                isAuthenticating: false,
+                gmailSecretJson: '',
+                m365SecretJson: '',
                 init() {
                     this.resetAndFetch();
                     this.fetchSettings();
+                    this.checkAuthStatus();
 
                     setInterval(() => {
                         this.fetchStatus();
@@ -692,6 +837,77 @@
                             });
                         }
                     }, 2000);
+                },
+                async saveSecret(provider) {
+                    const jsonStr = provider === 'gmail' ? this.gmailSecretJson : this.m365SecretJson;
+                    if (!jsonStr) return;
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        const res = await fetch(`/api/secrets?provider=${provider}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+                        const result = await res.json();
+                        if (res.ok) {
+                            alert(result.message);
+                            if (provider === 'gmail') this.gmailSecretJson = '';
+                            else this.m365SecretJson = '';
+                        } else {
+                            alert('Error: ' + result.detail);
+                        }
+                    } catch (e) {
+                        alert('Invalid JSON: ' + e.message);
+                    }
+                },
+                async checkAuthStatus() {
+                    try {
+                        const res = await fetch('/api/auth/status');
+                        this.authStatus = await res.json();
+                    } catch (e) { }
+                },
+                async startAuth(provider) {
+                    this.isAuthenticating = true;
+                    this.authFlow = null;
+                    this.authCode = '';
+                    try {
+                        const res = await fetch('/api/auth/init', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ provider })
+                        });
+                        this.authFlow = await res.json();
+                        this.authFlow.provider = provider;
+                    } catch (e) {
+                        alert('Auth init failed: ' + e);
+                    } finally {
+                        this.isAuthenticating = false;
+                    }
+                },
+                async completeAuth() {
+                    this.isAuthenticating = true;
+                    try {
+                        const res = await fetch('/api/auth/complete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                provider: this.authFlow.provider,
+                                code: this.authCode,
+                                flow: this.authFlow.flow
+                            })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.authFlow = null;
+                            this.checkAuthStatus();
+                        } else {
+                            alert(data.detail || 'Auth failed');
+                        }
+                    } catch (e) {
+                        alert('Auth failed: ' + e);
+                    } finally {
+                        this.isAuthenticating = false;
+                    }
                 },
                 resetAndFetch() {
                     this.skip = 0;

@@ -26,6 +26,40 @@ class GraphHandler:
             if os.path.exists(self.token_path):
                 os.chmod(self.token_path, 0o600)
 
+    def initiate_device_flow(self):
+        """Starts the MSAL device code flow."""
+        client_id = self.config['m365']['client_id']
+        authority = self.config['m365']['authority']
+        scopes = self.config['m365']['scopes']
+        
+        self._load_cache()
+        self.app = msal.PublicClientApplication(
+            client_id, 
+            authority=authority,
+            token_cache=self.cache
+        )
+        
+        flow = self.app.initiate_device_flow(scopes=scopes)
+        if "user_code" not in flow:
+            raise Exception(f"Could not initiate device flow: {flow.get('error_description')}")
+        return flow
+
+    def complete_device_flow(self, flow):
+        """Waits for/completes the device flow started by initiate_device_flow."""
+        if not self.app:
+            raise Exception("Device flow not initiated")
+        
+        result = self.app.acquire_token_by_device_flow(flow)
+        if "access_token" in result:
+            self.token = result['access_token']
+            self._save_cache()
+            logging.info("M365 Authentication successful via Device Flow.")
+            return True
+        else:
+            error = result.get('error_description', 'Unknown error during device flow')
+            logging.error(f"Device flow failed: {error}")
+            return False
+
     def authenticate(self):
         """
         Authenticates against Microsoft Graph API.
@@ -35,7 +69,6 @@ class GraphHandler:
         scopes = self.config['m365']['scopes']
         
         self._load_cache()
-        atexit.register(self._save_cache)
         
         self.app = msal.PublicClientApplication(
             client_id, 
@@ -50,22 +83,27 @@ class GraphHandler:
             result = self.app.acquire_token_silent(scopes, account=accounts[0])
             
         if not result:
-            logging.info("No suitable token exists in cache. Let's get a new one from AAD.")
-            # Interactive flow
+            # If we're not in a TTY, we can't do interactive browser
+            import sys
+            if not sys.stdin.isatty():
+                # For non-TTY (like the UI), we expect the UI to handle the flow
+                # but if authenticate() is called directly, we fail gracefully
+                logging.info("Silent auth failed and no TTY available. Use Device Flow via UI.")
+                return False
+
+            logging.info("No suitable token exists in cache. Launching interactive auth.")
             try:
-                # This opens the browser
                 result = self.app.acquire_token_interactive(scopes=scopes)
             except Exception as e:
                 logging.error(f"Authentication failed: {e}")
                 raise
         
-        if "access_token" in result:
+        if result and "access_token" in result:
             self.token = result['access_token']
+            self._save_cache()
             logging.info("M365 Authentication successful.")
-        else:
-            error_description = result.get('error_description', 'No error description provided')
-            logging.error(f"Could not authenticate: {error_description}")
-            raise Exception(f"Authentication Failed: {error_description}")
+            return True
+        return False
 
     def fetch_ids(self, filter_str=None, search_str=None):
         """
