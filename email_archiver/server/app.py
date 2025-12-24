@@ -264,5 +264,11 @@ def start_server(host="127.0.0.1", port=8000):
     def open_browser():
         webbrowser.open(f"http://{host}:{port}")
 
-    Timer(1.5, open_browser).start()
-    uvicorn.run(app, host=host, port=port)
+    try:
+        Timer(1.5, open_browser).start()
+        uvicorn.run(app, host=host, port=port, log_level="info")
+    except KeyboardInterrupt:
+        # Silently exit on Ctrl+C
+        pass
+    finally:
+        logging.info("Server stopped.")

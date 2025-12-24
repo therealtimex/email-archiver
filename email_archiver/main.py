@@ -95,26 +95,31 @@ def main():
     config = load_config(CONFIG_PATH)
     checkpoint = load_checkpoint(CHECKPOINT_PATH)
     
-    run_archiver_logic_internal(
-        provider=args.provider,
-        incremental=args.incremental,
-        since=args.since,
-        after_id=args.after_id,
-        query=args.query,
-        classify=args.classify,
-        extract=args.extract,
-        openai_api_key=args.openai_api_key,
-        skip_promotional=args.skip_promotional,
-        metadata_output=args.metadata_output,
-        llm_provider=args.llm_provider,
-        llm_base_url=args.llm_base_url,
-        webhook_url=args.webhook_url,
-        webhook_secret=args.webhook_secret,
-        download_dir=args.download_dir,
-        config=config,
-        checkpoint=checkpoint,
-        local_only=args.local_only
-    )
+    try:
+        run_archiver_logic_internal(
+            provider=args.provider,
+            incremental=args.incremental,
+            since=args.since,
+            after_id=args.after_id,
+            query=args.query,
+            classify=args.classify,
+            extract=args.extract,
+            openai_api_key=args.openai_api_key,
+            skip_promotional=args.skip_promotional,
+            metadata_output=args.metadata_output,
+            llm_provider=args.llm_provider,
+            llm_base_url=args.llm_base_url,
+            webhook_url=args.webhook_url,
+            webhook_secret=args.webhook_secret,
+            download_dir=args.download_dir,
+            config=config,
+            checkpoint=checkpoint,
+            local_only=args.local_only
+        )
+    except KeyboardInterrupt:
+        logging.info("Process interrupted by user. Exiting...")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
 
 def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None):
     """Entry point for UI to run sync."""
