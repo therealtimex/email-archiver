@@ -13,8 +13,11 @@ from email_archiver.core.classifier import EmailClassifier
 from email_archiver.core.extractor import EmailExtractor
 from email_archiver.core.db_handler import DBHandler
 
-CONFIG_PATH = 'config/settings.yaml'
-CHECKPOINT_PATH = 'config/checkpoint.json'
+# Robust path handling
+MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(MAIN_DIR)
+CONFIG_PATH = os.path.join(BASE_DIR, 'config', 'settings.yaml')
+CHECKPOINT_PATH = os.path.join(BASE_DIR, 'config', 'checkpoint.json')
 
 def load_config(path):
     if not os.path.exists(path):
@@ -191,7 +194,9 @@ def run_archiver_logic_internal(
 
     # Ensure download directory exists
     target_download_dir = download_dir if download_dir else config.get('app', {}).get('download_dir', 'downloads')
+    target_download_dir = os.path.abspath(target_download_dir) # Ensure absolute path for logging clarity
     os.makedirs(target_download_dir, exist_ok=True)
+    logging.info(f"Target download directory: {target_download_dir}")
     
     # Apply CLI webhook overrides
     webhook_config = config.get('webhook', {})

@@ -77,8 +77,8 @@ class DBHandler:
                 conn.commit()
                 return True
         except sqlite3.IntegrityError:
-            logging.warning(f"Email {message_id} already exists in database (IntegrityError).")
-            return False
+            logging.info(f"Email {message_id} already exists. Updating its file path to {file_path}")
+            return self.update_email_path(message_id, file_path)
         except Exception as e:
             logging.error(f"Failed to record email {message_id} in database: {e}")
             return False

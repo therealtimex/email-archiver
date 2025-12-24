@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2025-12-23
+
+### Fixed
+- **Persistence Logic**: Unified configuration path resolution between the UI and CLI to ensure settings changes are always correctly applied.
+- **Database Path Healing**: The database now automatically updates the file location of an archived email if it is moved or re-downloaded to a new folder, resolving "IntegrityError" warnings.
+- **Improved Logging**: Added explicit logging of the active download directory at the start of every sync.
+
 ## [0.8.0] - 2025-12-23
 
 ### Fixed
