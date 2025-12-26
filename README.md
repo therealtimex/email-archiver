@@ -14,6 +14,7 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 - **🪝 Webhook Integration** - Automatically send downloaded emails to webhook endpoints
 - **💾 Incremental Checkpointing** - Resume interrupted downloads
 - **📦 Modern Package Management** - UV/UVX support for easy installation and execution
+- **🛡️ Sandbox Support** - Run in restricted/read-only environments using `EESA_DATA_DIR` (v0.8.3+)
 
 ## 🚀 Quick Start
 
@@ -143,6 +144,29 @@ webhook:
   enabled: true
   headers:
     Authorization: "Bearer your-token"
+```
+
+### 🛡️ Sandboxed & Restricted Environments
+
+EESA supports running in restricted environments (Docker, Lambda, etc.) by using environment variables to control where data is stored:
+
+| Environment Variable | Description | Default |
+|----------------------|-------------|---------|
+| `EESA_DATA_DIR` | Base directory for all data | `~/.email-archiver` |
+| `EESA_CONFIG_PATH` | Path to `settings.yaml` | `data_dir/config/settings.yaml` |
+| `EESA_DB_PATH` | Path to SQLite database | `data_dir/email_archiver.sqlite` |
+| `EESA_LOG_FILE` | Path to log file (or `stdout`/`stderr`) | `data_dir/sync.log` |
+| `EESA_AUTH_DIR` | Directory for OAuth tokens | `data_dir/auth` |
+| `EESA_DOWNLOAD_DIR` | Default download directory | `data_dir/downloads` |
+
+**Example (Lambda/Read-only FS):**
+```bash
+# Store all data in /tmp
+export EESA_DATA_DIR=/tmp
+# Log directly to stdout
+export EESA_LOG_FILE=stdout
+# Run the archiver
+email-archiver --provider gmail --incremental
 ```
 
 ## 📋 Command-Line Arguments

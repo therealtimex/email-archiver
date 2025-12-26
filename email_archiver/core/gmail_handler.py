@@ -12,10 +12,11 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 class GmailHandler:
     def __init__(self, config):
+        from email_archiver.core.paths import get_auth_dir
         self.config = config
         self.creds = None
         self.service = None
-        self.token_path = 'auth/gmail_token.json'
+        self.token_path = str(get_auth_dir() / 'gmail_token.json')
         
     def get_auth_url(self):
         """Returns the authorization URL to be shown in the UI."""

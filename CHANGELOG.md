@@ -5,10 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.2] - 2025-12-23
+## [0.8.3] - 2025-12-26
 
 ### Added
-- **Dynamic Versioning**: The dashboard now automatically displays the correct project version by fetching it from the backend, eliminating the need for manual HTML updates.
+- **Sandbox & Restricted Environment Support**: Introduced `EESA_DATA_DIR` and granular environment variable overrides (`EESA_DB_PATH`, `EESA_LOG_FILE`, etc.) to support running in read-only or restricted file systems.
+- **Improved UX for `uvx`**: Set the default data directory to `~/.email-archiver`, providing a seamless "zero-config" experience while ensuring data persistence.
+- **Stdout Logging**: Support for redirecting logs to `stdout` or `stderr` via `EESA_LOG_FILE`, ideal for containerized or serverless environments.
+
+## [0.8.2] - 2025-12-23
 
 ## [0.8.1] - 2025-12-23
 

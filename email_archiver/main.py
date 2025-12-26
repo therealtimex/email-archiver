@@ -12,12 +12,19 @@ from email_archiver.core.graph_handler import GraphHandler
 from email_archiver.core.classifier import EmailClassifier
 from email_archiver.core.extractor import EmailExtractor
 from email_archiver.core.db_handler import DBHandler
+from email_archiver.core.paths import (
+    get_config_path, 
+    get_data_dir, 
+    get_log_path, 
+    get_auth_dir, 
+    get_download_dir,
+    resolve_path
+)
 
 # Robust path handling
-MAIN_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(MAIN_DIR)
-CONFIG_PATH = os.path.join(BASE_DIR, 'config', 'settings.yaml')
-CHECKPOINT_PATH = os.path.join(BASE_DIR, 'config', 'checkpoint.json')
+CONFIG_PATH = get_config_path()
+# Checkpoint migration path - still defaults to config dir if not found in data root
+CHECKPOINT_PATH = resolve_path('config/checkpoint.json')
 
 def load_config(path):
     if not os.path.exists(path):
@@ -59,7 +66,7 @@ def save_checkpoint(path, data):
         json.dump(data, f, indent=2)
 
 def main():
-    setup_logging()
+    setup_logging(os.getenv('EESA_LOG_FILE'))
     
     parser = argparse.ArgumentParser(description="Email-to-EML Secure Archiver")
     parser.add_argument('--provider', choices=['gmail', 'm365'], help='Email provider')
@@ -193,8 +200,11 @@ def run_archiver_logic_internal(
     migrate_checkpoints_to_db(CHECKPOINT_PATH, db)
 
     # Ensure download directory exists
-    target_download_dir = download_dir if download_dir else config.get('app', {}).get('download_dir', 'downloads')
-    target_download_dir = os.path.abspath(target_download_dir) # Ensure absolute path for logging clarity
+    target_download_dir = download_dir if download_dir else config.get('app', {}).get('download_dir')
+    if not target_download_dir:
+        target_download_dir = get_download_dir()
+    
+    target_download_dir = str(resolve_path(target_download_dir))
     os.makedirs(target_download_dir, exist_ok=True)
     logging.info(f"Target download directory: {target_download_dir}")
     

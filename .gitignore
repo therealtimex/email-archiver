@@ -67,3 +67,6 @@ htmlcov/
 
 # Database
 *.sqlite
+
+# Test data
+test_data/

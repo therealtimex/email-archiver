@@ -4,9 +4,11 @@ import os
 import logging
 from datetime import datetime
 
+from email_archiver.core.paths import get_db_path
+
 class DBHandler:
-    def __init__(self, db_path='email_archiver.sqlite'):
-        self.db_path = db_path
+    def __init__(self, db_path=None):
+        self.db_path = db_path if db_path else str(get_db_path())
         self._init_db()
 
     def _get_connection(self):

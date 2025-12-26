@@ -7,10 +7,11 @@ import requests
 
 class GraphHandler:
     def __init__(self, config):
+        from email_archiver.core.paths import get_auth_dir
         self.config = config
         self.app = None
         self.token = None
-        self.token_path = 'auth/m365_token.json'
+        self.token_path = str(get_auth_dir() / 'm365_token.json')
         # Memory cache for the session
         self.cache = msal.SerializableTokenCache()
 

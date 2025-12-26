@@ -1,21 +1,38 @@
 import re
 import logging
 import os
+import sys
 from datetime import datetime
 
-def setup_logging(log_file='sync.log'):
+def setup_logging(log_file=None):
     """
     Configures the logging system to write to a file and the console.
+    If log_file is 'stdout' or 'stderr', it logs only to that stream.
     """
+    from email_archiver.core.paths import get_log_path
+    
+    actual_log_path = log_file if log_file else str(get_log_path())
+    
+    handlers = []
+    if actual_log_path.lower() == 'stdout':
+        handlers.append(logging.StreamHandler(sys.stdout))
+    elif actual_log_path.lower() == 'stderr':
+        handlers.append(logging.StreamHandler(sys.stderr))
+    else:
+        # Standard file + console
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(actual_log_path)), exist_ok=True)
+            handlers.append(logging.FileHandler(actual_log_path))
+        except Exception as e:
+            print(f"Warning: Could not create log file at {actual_log_path}: {e}")
+        handlers.append(logging.StreamHandler())
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
+        handlers=handlers
     )
-    logging.info("Logging initialized.")
+    logging.info(f"Logging initialized. Log target: {actual_log_path}")
 
 def sanitize_filename(text):
     """

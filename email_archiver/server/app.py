@@ -16,6 +16,12 @@ import yaml
 from email_archiver.core.utils import setup_logging
 from email_archiver.core.classifier import EmailClassifier
 from email_archiver.core.db_handler import DBHandler
+from email_archiver.core.paths import (
+    get_config_path, 
+    get_auth_dir, 
+    get_data_dir, 
+    resolve_path
+)
 
 app = FastAPI(title="EESA Web Dashboard")
 
@@ -29,9 +35,7 @@ app.add_middleware(
 
 # Paths
 SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(os.path.dirname(SERVER_DIR))
-CONFIG_PATH = os.path.join(BASE_DIR, 'config', 'settings.yaml')
-METADATA_PATH = os.path.join(BASE_DIR, 'email_metadata.jsonl')
+CONFIG_PATH = get_config_path()
 TEMPLATES_DIR = os.path.join(SERVER_DIR, "templates")
 STATIC_DIR = os.path.join(SERVER_DIR, "static")
 
@@ -107,9 +111,9 @@ async def update_settings(new_settings: Dict[str, Any]):
 @app.get("/api/auth/status")
 async def get_auth_status():
     """Checks if providers are authenticated."""
-    gmail_token = 'auth/gmail_token.json'
-    # For M365 it's often m365_token.json but check GraphHandler
-    m365_token = 'auth/m365_token.json'
+    auth_dir = get_auth_dir()
+    gmail_token = auth_dir / 'gmail_token.json'
+    m365_token = auth_dir / 'm365_token.json'
     
     return {
         "gmail": os.path.exists(gmail_token),
@@ -179,14 +183,15 @@ async def complete_auth(request: AuthRequest):
 async def save_secrets(provider: str, data: Dict[str, Any]):
     """Saves provider secrets (like credentials.json) to the auth/ directory."""
     try:
-        os.makedirs('auth', exist_ok=True)
+        auth_dir = get_auth_dir()
+        os.makedirs(auth_dir, exist_ok=True)
         if provider == 'gmail':
-            path = 'auth/credentials.json'
+            path = auth_dir / 'credentials.json'
             with open(path, 'w') as f:
                 json.dump(data, f, indent=2)
             return {"message": "Gmail credentials saved"}
         elif provider == 'm365':
-            path = 'auth/config.json'
+            path = auth_dir / 'config.json'
             with open(path, 'w') as f:
                 json.dump(data, f, indent=2)
             return {"message": "M365 config saved"}
