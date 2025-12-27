@@ -93,37 +93,37 @@
     <div class="flex flex-col h-screen overflow-hidden">
         <!-- Top Navigation -->
         <nav
-            class="h-20 glass flex flex-shrink-0 items-center justify-between px-8 z-20 border-b border-white/5 sticky top-0">
-            <div class="flex items-center gap-12">
-                <div class="flex items-center gap-4 cursor-pointer" @click="activeTab = 'dashboard'">
+            class="h-20 glass flex flex-shrink-0 items-center justify-between px-4 md:px-6 lg:px-8 z-20 border-b border-white/5 sticky top-0">
+            <div class="flex items-center gap-4 md:gap-8 lg:gap-12">
+                <div class="flex items-center gap-3 cursor-pointer" @click="activeTab = 'dashboard'">
                     <div
                         class="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary font-bold shadow-lg shadow-primary/20">
                         E
                     </div>
-                    <div>
-                        <h1 class="text-xl font-bold text-gradient"
+                    <div class="hidden sm:block">
+                        <h1 class="text-lg md:text-xl font-bold text-gradient"
                             x-text="activeTab === 'dashboard' ? 'Archive Intelligence' : 'System Configuration'"></h1>
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider"
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:block"
                             x-text="activeTab === 'dashboard' ? 'Dashboard v' + appVersion : 'Control Center'"></p>
                     </div>
                 </div>
 
-                <div class="h-8 w-px bg-white/10 mx-2"></div>
+                <div class="h-8 w-px bg-white/10 mx-2 hidden md:block"></div>
 
                 <div class="flex gap-2">
                     <button @click="activeTab = 'dashboard'"
                         :class="activeTab === 'dashboard' ? 'bg-primary/10 text-primary border-primary/20' : 'text-slate-500 hover:text-slate-300 border-transparent'"
-                        class="px-4 py-2 rounded-xl transition-all flex items-center gap-3 border text-sm font-bold uppercase tracking-wider">
+                        class="px-3 md:px-4 py-2 rounded-xl transition-all flex items-center gap-2 md:gap-3 border text-sm font-bold uppercase tracking-wider">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                 d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                         </svg>
-                        Dashboard
+                        <span class="hidden md:inline">Dashboard</span>
                     </button>
                     <button @click="activeTab = 'settings'"
                         :class="activeTab === 'settings' ? 'bg-primary/10 text-primary border-primary/20' : 'text-slate-500 hover:text-slate-300 border-transparent'"
-                        class="px-4 py-2 rounded-xl transition-all flex items-center gap-3 border text-sm font-bold uppercase tracking-wider">
+                        class="px-3 md:px-4 py-2 rounded-xl transition-all flex items-center gap-2 md:gap-3 border text-sm font-bold uppercase tracking-wider">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
                             stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
@@ -131,49 +131,52 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                 d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        Settings
+                        <span class="hidden md:inline">Settings</span>
                     </button>
                 </div>
             </div>
 
-            <div class="flex items-center gap-6">
+            <div class="flex items-center gap-3 md:gap-6">
                 <!-- Search Bar -->
-                <div class="relative hidden lg:block" x-show="activeTab === 'dashboard'">
+                <div class="relative hidden md:block" x-show="activeTab === 'dashboard'">
                     <input type="text" x-model="search" @input.debounce.500ms="resetAndFetch()"
-                        class="w-80 bg-white/5 border border-white/10 rounded-xl px-10 py-2.5 text-xs focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-slate-600"
-                        placeholder="Search your intelligence archive...">
+                        class="w-48 lg:w-80 bg-white/5 border border-white/10 rounded-xl px-10 py-2.5 text-xs focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-slate-600"
+                        placeholder="Search archive...">
                     <span class="absolute left-3 top-2.5 text-slate-500 text-sm">🔍</span>
                 </div>
 
-                <div class="flex items-center gap-3 px-4 py-2 glass rounded-2xl border border-white/5">
+                <div class="flex items-center gap-2 md:gap-3 px-2 md:px-4 py-2 glass rounded-2xl border border-white/5">
                     <div class="relative w-2 h-2">
                         <div class="absolute inset-0 rounded-full"
                             :class="status.is_running ? 'bg-green-400 animate-ping' : 'bg-slate-500'"></div>
                         <div class="absolute inset-0 rounded-full"
                             :class="status.is_running ? 'bg-green-500' : 'bg-slate-600'"></div>
                     </div>
-                    <span class="text-xs font-black uppercase tracking-wider"
+                    <span class="text-xs font-black uppercase tracking-wider hidden sm:inline"
                         :class="status.is_running ? 'text-green-400' : 'text-slate-500'"
-                        x-text="status.is_running ? 'SYNC ACTIVE' : 'SYSTEM READY'"></span>
+                        x-text="status.is_running ? 'SYNC ACTIVE' : 'READY'"></span>
+                    <span class="text-xs font-black uppercase tracking-wider sm:hidden"
+                        :class="status.is_running ? 'text-green-400' : 'text-slate-500'"
+                        x-text="status.is_running ? 'SYNC' : 'OK'"></span>
                 </div>
             </div>
         </nav>
 
         <!-- Main Content Area -->
-        <main class="flex-1 flex flex-col overflow-hidden p-8">
+        <main class="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
 
             <!-- Dashboard View -->
-            <div x-show="activeTab === 'dashboard'" class="flex-1 overflow-y-auto space-y-8 pr-2">
+            <div x-show="activeTab === 'dashboard'" class="flex-1 overflow-y-auto space-y-4 md:space-y-6 lg:space-y-8 pr-2">
 
                 <!-- Connection Wizard / Welcome -->
                 <div x-show="!authStatus.gmail && !authStatus.m365 && stats.total_archived === 0"
-                    class="glass p-8 rounded-3xl border border-indigo-500/20 bg-indigo-500/5 mb-8 animate-in slide-in-from-top duration-500">
-                    <div class="flex flex-col md:flex-row gap-8 items-center">
+                    class="glass p-6 md:p-8 rounded-3xl border border-indigo-500/20 bg-indigo-500/5 mb-4 md:mb-6 lg:mb-8 animate-in slide-in-from-top duration-500">
+                    <div class="flex flex-col md:flex-row gap-6 md:gap-8 items-center">
                         <div class="flex-1 space-y-4">
-                            <h2 class="text-2xl font-bold text-white">Welcome to Email Archiver</h2>
+                            <h2 class="text-xl md:text-2xl font-bold text-white">Welcome to Email Archiver</h2>
                             <p class="text-slate-400 text-sm leading-relaxed">Connect your first email provider to start
                                 building your intelligence archive. No technical setup required.</p>
-                            <div class="flex gap-4">
+                            <div class="flex flex-col sm:flex-row gap-3 md:gap-4">
                                 <button @click="startAuth('gmail')"
                                     class="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-2 border border-white/5">
                                     <span>📩</span> Connect Gmail
@@ -192,8 +195,8 @@
                 </div>
 
                 <!-- Stats Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="glass p-6 rounded-2xl">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    <div class="glass p-5 md:p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-xs font-medium text-slate-400 tracking-wider">TOTAL ARCHIVED</span>
                             <span class="text-primary text-xl">📁</span>
@@ -201,7 +204,7 @@
                         <div class="text-3xl font-bold mb-1" x-text="stats.total_archived.toLocaleString()">0</div>
                         <div class="text-tiny text-slate-500">Updated: Just Now</div>
                     </div>
-                    <div class="glass p-6 rounded-2xl">
+                    <div class="glass p-5 md:p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-xs font-medium text-slate-400 tracking-wider">AI CLASSIFIED</span>
                             <span class="text-secondary text-xl">🧠</span>
@@ -210,7 +213,7 @@
                         <div class="text-tiny text-green-400/80">Active Categories: <span
                                 x-text="Object.keys(stats.categories).length">0</span></div>
                     </div>
-                    <div class="glass p-6 rounded-2xl">
+                    <div class="glass p-5 md:p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-xs font-medium text-slate-400 tracking-wider">DATA ENTITIES</span>
                             <span class="text-indigo-400 text-xl">📊</span>
@@ -221,12 +224,12 @@
                 </div>
 
                 <!-- Sync Console -->
-                <div class="glass rounded-2xl p-6 relative overflow-hidden">
+                <div class="glass rounded-2xl p-4 md:p-5 lg:p-6 relative overflow-hidden">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="font-bold text-slate-300">Synchronization Engine</h2>
                     </div>
 
-                    <div class="flex flex-col xl:flex-row gap-8 items-start justify-center">
+                    <div class="flex flex-col lg:flex-row gap-6 md:gap-8 items-start justify-center">
                         <div class="flex flex-col items-center gap-6">
                             <!-- Big Sync Button -->
                             <div class="relative group">
@@ -395,7 +398,7 @@
 
                 <!-- Recent Emails -->
                 <div class="glass rounded-2xl overflow-hidden">
-                    <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <div class="p-4 md:p-6 border-b border-white/10 flex flex-col sm:flex-row gap-3 sm:gap-0 justify-between items-start sm:items-center">
                         <h2 class="font-bold flex items-center gap-2 text-slate-300">
                             <span class="w-1.5 h-1.5 rounded-full bg-primary shadow shadow-primary"></span>
                             Intelligence Feed
@@ -464,10 +467,10 @@
             </div>
 
             <!-- Settings View -->
-            <div x-show="activeTab === 'settings'" x-cloak class="flex-1 overflow-y-auto space-y-8 pr-2">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div x-show="activeTab === 'settings'" x-cloak class="flex-1 overflow-y-auto space-y-4 md:space-y-6 lg:space-y-8 pr-2">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
                     <!-- General Settings -->
-                    <div class="glass p-8 rounded-3xl space-y-6">
+                    <div class="glass p-6 md:p-8 rounded-3xl space-y-6">
                         <h3 class="text-lg font-bold text-slate-200 flex items-center gap-3">
                             <span class="p-2 bg-primary/20 rounded-lg text-primary text-base">⚙️</span>
                             System Settings
@@ -509,7 +512,7 @@
                     </div>
 
                     <!-- AI Hub Settings -->
-                    <div class="glass p-8 rounded-3xl space-y-6">
+                    <div class="glass p-6 md:p-8 rounded-3xl space-y-6">
                         <h3 class="text-lg font-bold text-slate-200 flex items-center gap-3">
                             <span class="p-2 bg-secondary/20 rounded-lg text-secondary text-base">🧠</span>
                             Intelligence Hub
@@ -603,9 +606,9 @@
                     </button>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pb-12">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 lg:gap-8 pb-8 md:pb-12">
                     <!-- Google Secrets -->
-                    <div class="glass p-8 rounded-3xl space-y-4">
+                    <div class="glass p-6 md:p-8 rounded-3xl space-y-4">
                         <div class="flex justify-between items-center">
                             <h4 class="text-sm font-bold text-slate-300">Google Client Secrets</h4>
                             <span :class="authStatus.gmail ? 'text-green-400' : 'text-slate-500'"
@@ -624,7 +627,7 @@
                     </div>
 
                     <!-- M365 Secrets -->
-                    <div class="glass p-8 rounded-3xl space-y-4">
+                    <div class="glass p-6 md:p-8 rounded-3xl space-y-4">
                         <div class="flex justify-between items-center">
                             <h4 class="text-sm font-bold text-slate-300">M365 Configuration</h4>
                             <span :class="authStatus.m365 ? 'text-green-400' : 'text-slate-500'"
@@ -644,7 +647,7 @@
                 </div>
 
                 <!-- Danger Zone -->
-                <div class="glass p-8 rounded-3xl border border-red-500/10 bg-red-500/5 mb-12">
+                <div class="glass p-6 md:p-8 rounded-3xl border border-red-500/10 bg-red-500/5 mb-8 md:mb-12">
                     <h3 class="text-lg font-bold text-red-400 flex items-center gap-3 mb-4">
                         <span class="p-2 bg-red-500/10 rounded-lg text-base">☠️</span>
                         Danger Zone
@@ -738,7 +741,7 @@
     <div x-show="authFlow" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div @click="authFlow = null" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
         <div
-            class="relative w-full max-w-md glass rounded-3xl p-8 shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
+            class="relative w-full max-w-md glass rounded-3xl p-6 md:p-8 shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-200">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold text-white"
                     x-text="'Connect ' + (authFlow?.provider === 'gmail' ? 'Gmail' : 'Microsoft 365')"></h3>
@@ -811,7 +814,7 @@
         @keydown.escape.window="selectedEmail = null">
         <div class="glass w-full max-w-3xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl"
             @click.away="selectedEmail = null">
-            <div class="p-6 border-b border-white/10 flex justify-between items-start">
+            <div class="p-4 md:p-6 border-b border-white/10 flex justify-between items-start">
                 <div>
                     <h3 class="text-xl font-bold text-slate-200" x-text="selectedEmail?.subject"></h3>
                     <div class="flex gap-4 mt-2">
@@ -829,7 +832,7 @@
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-8 space-y-8">
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
                 <!-- Intelligence Panel -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-primary/5 rounded-2xl p-5 border border-primary/10">
