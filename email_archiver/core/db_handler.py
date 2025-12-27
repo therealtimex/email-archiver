@@ -22,6 +22,7 @@ class DBHandler:
                 CREATE TABLE IF NOT EXISTS emails (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     message_id TEXT UNIQUE NOT NULL,
+                    account_email TEXT,
                     provider TEXT NOT NULL,
                     subject TEXT,
                     sender TEXT,
@@ -33,17 +34,38 @@ class DBHandler:
                     processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # Migration: Check if account_email exists in emails
+            cursor.execute("PRAGMA table_info(emails)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'account_email' not in columns:
+                logging.info("Migrating emails table: adding account_email column")
+                cursor.execute('ALTER TABLE emails ADD COLUMN account_email TEXT')
+
             # Index for fast lookups by message_id
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_message_id ON emails (message_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_account_email ON emails (account_email)')
             
-            # Checkpoints table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS checkpoints (
-                    provider TEXT PRIMARY KEY,
-                    last_sync_value TEXT,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
+            # Checkpoints table - recreated for composite primary key if needed
+            cursor.execute("PRAGMA table_info(checkpoints)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'account_email' not in columns:
+                logging.info("Migrating checkpoints table for multi-account support")
+                # Backup and recreate is safest for primary key changes in SQLite
+                cursor.execute('ALTER TABLE checkpoints RENAME TO checkpoints_old')
+                cursor.execute('''
+                    CREATE TABLE checkpoints (
+                        provider TEXT,
+                        account_email TEXT,
+                        last_sync_value TEXT,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (provider, account_email)
+                    )
+                ''')
+                # Transfer old checkpoints to a 'default' account if existing
+                cursor.execute('INSERT INTO checkpoints (provider, account_email, last_sync_value, updated_at) SELECT provider, "default", last_sync_value, updated_at FROM checkpoints_old')
+                cursor.execute('DROP TABLE checkpoints_old')
+            
             conn.commit()
             logging.info(f"Database initialized at {self.db_path}")
 
@@ -54,7 +76,7 @@ class DBHandler:
             cursor.execute('SELECT 1 FROM emails WHERE message_id = ?', (message_id,))
             return cursor.fetchone() is not None
 
-    def record_email(self, message_id, provider, subject, sender, recipients, received_at, file_path, classification=None, extraction=None):
+    def record_email(self, message_id, provider, subject, sender, recipients, received_at, file_path, account_email="default", classification=None, extraction=None):
         """Records a processed email in the database."""
         # Convert objects to JSON strings if they are dicts/lists
         class_str = json.dumps(classification) if classification else None
@@ -70,11 +92,11 @@ class DBHandler:
                 cursor.execute('''
                     INSERT INTO emails (
                         message_id, provider, subject, sender, recipients, 
-                        received_at, file_path, classification, extraction
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        received_at, file_path, account_email, classification, extraction
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     message_id, provider, subject, sender, recipients,
-                    received_at, file_path, class_str, ext_str
+                    received_at, file_path, account_email, class_str, ext_str
                 ))
                 conn.commit()
                 return True
@@ -86,13 +108,13 @@ class DBHandler:
                     cursor.execute('''
                         UPDATE emails SET 
                             subject = ?, sender = ?, recipients = ?, 
-                            received_at = ?, file_path = ?, 
+                            received_at = ?, file_path = ?, account_email = ?,
                             classification = ?, extraction = ?,
                             processed_at = CURRENT_TIMESTAMP
                         WHERE message_id = ?
                     ''', (
                         subject, sender, recipients, received_at, 
-                        file_path, class_str, ext_str, message_id
+                        file_path, account_email, class_str, ext_str, message_id
                     ))
                     conn.commit()
                     return True
@@ -139,8 +161,8 @@ class DBHandler:
             logging.error(f"Error fetching stats from DB: {e}")
         return stats
 
-    def get_emails(self, limit=50, offset=0, search_query=None):
-        """Returns a list of emails for the dashboard, with optional search."""
+    def get_emails(self, limit=50, offset=0, search_query=None, account_email=None):
+        """Returns a list of emails for the dashboard, with optional search and account filter."""
         emails = []
         try:
             with self._get_connection() as conn:
@@ -148,12 +170,20 @@ class DBHandler:
                 cursor = conn.cursor()
                 
                 query = "SELECT * FROM emails"
+                where_clauses = []
                 params = []
                 
                 if search_query:
-                    query += " WHERE subject LIKE ? OR sender LIKE ? OR recipients LIKE ? OR classification LIKE ? OR extraction LIKE ?"
+                    where_clauses.append("(subject LIKE ? OR sender LIKE ? OR recipients LIKE ? OR classification LIKE ? OR extraction LIKE ?)")
                     search_param = f"%{search_query}%"
                     params.extend([search_param] * 5)
+                
+                if account_email:
+                    where_clauses.append("account_email = ?")
+                    params.append(account_email)
+                
+                if where_clauses:
+                    query += " WHERE " + " AND ".join(where_clauses)
                 
                 query += " ORDER BY received_at DESC LIMIT ? OFFSET ?"
                 params.extend([limit, offset])
@@ -176,17 +206,17 @@ class DBHandler:
             logging.error(f"Error fetching emails from DB: {e}")
         return emails
 
-    def get_checkpoint(self, provider):
-        """Returns the last sync value for a provider."""
+    def get_checkpoint(self, provider, account_email="default"):
+        """Returns the last sync value for a provider and account."""
         try:
             with self._get_connection() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                cursor.execute('SELECT last_sync_value FROM checkpoints WHERE provider = ?', (provider,))
+                cursor.execute('SELECT last_sync_value FROM checkpoints WHERE provider = ? AND account_email = ?', (provider, account_email))
                 row = cursor.fetchone()
                 return row["last_sync_value"] if row else None
         except Exception as e:
-            logging.error(f"Error getting checkpoint for {provider}: {e}")
+            logging.error(f"Error getting checkpoint for {provider}:{account_email}: {e}")
             return None
 
     def get_email(self, message_id):
@@ -222,20 +252,20 @@ class DBHandler:
             logging.error(f"Error updating path for email {message_id}: {e}")
             return False
 
-    def save_checkpoint(self, provider, value):
-        """Saves a sync checkpoint value for a provider."""
+    def save_checkpoint(self, provider, value, account_email="default"):
+        """Saves a sync checkpoint value for a provider and account."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT INTO checkpoints (provider, last_sync_value, updated_at)
-                    VALUES (?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(provider) DO UPDATE SET 
+                    INSERT INTO checkpoints (provider, account_email, last_sync_value, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(provider, account_email) DO UPDATE SET 
                         last_sync_value = excluded.last_sync_value,
                         updated_at = CURRENT_TIMESTAMP
-                ''', (provider, str(value)))
+                ''', (provider, account_email, str(value)))
                 conn.commit()
                 return True
         except Exception as e:
-            logging.error(f"Error saving checkpoint for {provider}: {e}")
+            logging.error(f"Error saving checkpoint for {provider}:{account_email}: {e}")
             return False

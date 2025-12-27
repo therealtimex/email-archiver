@@ -6,12 +6,19 @@ import msal
 import requests
 
 class GraphHandler:
-    def __init__(self, config):
+    def __init__(self, config, account_email=None):
         from email_archiver.core.paths import get_auth_dir
         self.config = config
         self.app = None
         self.token = None
-        self.token_path = str(get_auth_dir() / 'm365_token.json')
+        self.account_email = account_email
+        self._auth_dir = get_auth_dir()
+        
+        if self.account_email:
+            self.token_path = str(self._auth_dir / 'accounts' / f'm365_{self.account_email}.json')
+        else:
+            self.token_path = str(self._auth_dir / 'm365_token.json')
+            
         # Memory cache for the session
         self.cache = msal.SerializableTokenCache()
 
@@ -53,9 +60,20 @@ class GraphHandler:
         result = self.app.acquire_token_by_device_flow(flow)
         if "access_token" in result:
             self.token = result['access_token']
+            
+            # Discover email
+            headers = {'Authorization': 'Bearer ' + self.token}
+            me_resp = requests.get('https://graph.microsoft.com/v1.0/me', headers=headers)
+            if me_resp.status_code == 200:
+                me = me_resp.json()
+                email = me.get('mail') or me.get('userPrincipalName')
+                if email:
+                    self.account_email = email
+                    self.token_path = str(self._auth_dir / 'accounts' / f'm365_{email}.json')
+            
             self._save_cache()
-            logging.info("M365 Authentication successful via Device Flow.")
-            return True
+            logging.info(f"M365 Authentication successful via Device Flow for {self.account_email}.")
+            return self.account_email or True
         else:
             error = result.get('error_description', 'Unknown error during device flow')
             logging.error(f"Device flow failed: {error}")
@@ -101,8 +119,20 @@ class GraphHandler:
         
         if result and "access_token" in result:
             self.token = result['access_token']
+            
+            # Discover email if not known
+            if not self.account_email:
+                headers = {'Authorization': 'Bearer ' + self.token}
+                me_resp = requests.get('https://graph.microsoft.com/v1.0/me', headers=headers)
+                if me_resp.status_code == 200:
+                    me = me_resp.json()
+                    email = me.get('mail') or me.get('userPrincipalName')
+                    if email:
+                        self.account_email = email
+                        self.token_path = str(self._auth_dir / 'accounts' / f'm365_{email}.json')
+
             self._save_cache()
-            logging.info("M365 Authentication successful.")
+            logging.info(f"M365 Authentication successful for {self.account_email}.")
             return True
         return False
 

@@ -79,6 +79,7 @@ class SyncRequest(BaseModel):
     llm_api_key: Optional[str] = None
     llm_model: Optional[str] = None
     local_only: bool = False
+    account_email: Optional[str] = None
 
 class AuthRequest(BaseModel):
     provider: str
@@ -121,10 +122,38 @@ async def get_auth_status():
     gmail_token = auth_dir / 'gmail_token.json'
     m365_token = auth_dir / 'm365_token.json'
     
+    # Also check accounts directory
+    accounts_dir = auth_dir / 'accounts'
+    has_accounts = False
+    if os.path.exists(accounts_dir):
+        has_accounts = len(os.listdir(accounts_dir)) > 0
+
     return {
         "gmail": os.path.exists(gmail_token),
-        "m365": os.path.exists(m365_token)
+        "m365": os.path.exists(m365_token),
+        "has_accounts": has_accounts
     }
+
+@app.get("/api/accounts")
+async def get_accounts():
+    """Returns a list of authenticated accounts."""
+    auth_dir = get_auth_dir()
+    accounts_dir = auth_dir / 'accounts'
+    accounts = []
+    
+    if os.path.exists(accounts_dir):
+        for filename in os.listdir(accounts_dir):
+            if filename.endswith(".json"):
+                basename = filename[:-5]
+                if '_' in basename:
+                    provider, email = basename.split('_', 1)
+                else:
+                    provider, email = "unknown", basename
+                accounts.append({
+                    "email": email,
+                    "provider": provider
+                })
+    return accounts
 
 @app.post("/api/auth/init")
 async def init_auth(request: AuthRequest):
@@ -210,10 +239,10 @@ async def get_stats():
     return db.get_stats()
 
 @app.get("/api/emails")
-async def get_emails(limit: int = 50, skip: int = 0, search: Optional[str] = None):
-    return db.get_emails(limit=limit, offset=skip, search_query=search)
+async def get_emails(limit: int = 50, skip: int = 0, search: Optional[str] = None, account: Optional[str] = None):
+    return db.get_emails(limit=limit, offset=skip, search_query=search, account_email=account)
 
-async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, rename: bool = False, embed: bool = False, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None, llm_base_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: Optional[str] = None, local_only: bool = False):
+async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, rename: bool = False, embed: bool = False, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None, llm_base_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: Optional[str] = None, local_only: bool = False, account_email: Optional[str] = None):
     global sync_status
     sync_status["is_running"] = True
     sync_status["is_cancelled"] = False # Reset cancellation state
@@ -225,10 +254,10 @@ async def run_sync_task(provider: str, incremental: bool, classify: bool, extrac
     root_logger.addHandler(ui_log_handler)
     
     try:
-        logging.info(f"Initiating sync for provider: {provider}")
+        logging.info(f"Initiating sync for provider: {provider} {'(Account: ' + account_email + ')' if account_email else ''}")
         from email_archiver.main import run_archiver_logic
         
-        await asyncio.to_thread(run_archiver_logic, provider, incremental, classify, extract, since, after_id, query, rename, embed, llm_api_key, llm_model, llm_base_url, local_only)
+        await asyncio.to_thread(run_archiver_logic, provider, incremental, classify, extract, since, after_id, query, rename, embed, llm_api_key, llm_model, llm_base_url, local_only, account_email)
         
         logging.info("Synchronization completed successfully.")
         sync_status["last_run"] = datetime.now().isoformat()
@@ -258,7 +287,8 @@ async def trigger_sync(request: SyncRequest, background_tasks: BackgroundTasks):
         request.llm_base_url,
         request.llm_api_key,
         request.llm_model,
-        request.local_only
+        request.local_only,
+        request.account_email
     )
     return {"message": "Sync started"}
 

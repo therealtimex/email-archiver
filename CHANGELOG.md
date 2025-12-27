@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-12-26
+
+### Added
+- **Multi-Account Support**: Complete architectural shift to support multiple email accounts simultaneously.
+  - **Account-Centric Storage**: Each account now has isolated token storage in `~/.email-archiver/accounts/{provider}_{email}.json` and separate download directories in `downloads/{email}/`.
+  - **Database Schema Updates**: Added `account_email` column to `emails` table and updated `checkpoints` table to use composite primary key `(provider, account_email)`.
+  - **Account Management UI**: New account switcher in the Sync Dashboard with "Add Account" buttons for Gmail and M365.
+  - **Account Filtering**: Intelligence Feed now displays account information and includes a filter dropdown to view emails from specific accounts.
+  - **Dynamic Token Discovery**: OAuth flows now automatically discover the authenticated user's email address and save tokens with provider-prefixed filenames.
+  - **CLI Support**: Added `--account-email` flag to specify which account to sync via command line.
+
+### Changed
+- **Breaking**: Token file paths have changed from `gmail_token.json`/`m365_token.json` to `accounts/{provider}_{email}.json`. Existing tokens will need to be re-authenticated.
+- **Breaking**: Download directory structure changed from `downloads/` to `downloads/{account_email}/`. Existing archives will need to be migrated manually if account association is desired.
+
 ## [0.8.18] - 2025-12-26
 
 ### Fixed

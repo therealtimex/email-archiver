@@ -11,12 +11,19 @@ from googleapiclient.errors import HttpError
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 class GmailHandler:
-    def __init__(self, config):
+    def __init__(self, config, account_email=None):
         from email_archiver.core.paths import get_auth_dir
         self.config = config
         self.creds = None
         self.service = None
-        self.token_path = str(get_auth_dir() / 'gmail_token.json')
+        self.account_email = account_email
+        self._auth_dir = get_auth_dir()
+        
+        if self.account_email:
+            self.token_path = str(self._auth_dir / 'accounts' / f'gmail_{self.account_email}.json')
+        else:
+            # Fallback for legacy or untracked
+            self.token_path = str(self._auth_dir / 'gmail_token.json')
         
     def get_auth_url(self):
         """Returns the authorization URL to be shown in the UI."""
@@ -39,14 +46,22 @@ class GmailHandler:
         flow.fetch_token(code=code)
         self.creds = flow.credentials
         
+        # Build service to discover email
+        self.service = build('gmail', 'v1', credentials=self.creds)
+        user_info = self.service.users().getProfile(userId='me').execute()
+        email_address = user_info['emailAddress']
+        self.account_email = email_address
+        
+        # New token path
+        self.token_path = str(self._auth_dir / 'accounts' / f'gmail_{email_address}.json')
+
         # Save the credentials
         os.makedirs(os.path.dirname(self.token_path), exist_ok=True)
         with open(self.token_path, 'w') as token:
             token.write(self.creds.to_json())
         os.chmod(self.token_path, 0o600)
         
-        self.service = build('gmail', 'v1', credentials=self.creds)
-        return True
+        return email_address
 
     def authenticate(self):
         """

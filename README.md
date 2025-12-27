@@ -5,6 +5,7 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 ## ✨ Features
 
 - **🔐 Secure OAuth2 Authentication** - Browser-based authentication with 2FA support
+- **👥 Multi-Account Support** - Manage multiple Gmail and Outlook accounts simultaneously (v0.9.0+)
 - **📧 Multi-Provider Support** - Gmail and Microsoft 365 (Outlook)
 - **🧠 AI-Powered Classification** - Automatically categorize emails and skip promotions (v0.3.0+)
 - **📊 Advanced Extraction** - Extract structured data like summaries, action items, and invoices (v0.5.0+)
@@ -109,6 +110,15 @@ email-archiver --provider gmail --since 2024-12-01 \
   --download-dir /path/to/backup/emails
 ```
 
+### Multi-Account Sync (v0.9.0+)
+```bash
+# Sync specific account
+email-archiver --provider gmail --account-email user@example.com --incremental
+
+# Sync different account
+email-archiver --provider gmail --account-email specific.account@gmail.com --incremental
+```
+
 ## ⚙️ Configuration
 
 ### Gmail Setup
@@ -195,6 +205,7 @@ email-archiver --provider gmail --incremental
 | `--extract` | Enable advanced metadata extraction |
 | `--rename` | Intelligently rename .eml files to clean slugs |
 | `--embed` | Embed AI metadata directly into .eml headers |
+| `--account-email EMAIL` | Specify account email for multi-account sync |
 | `--ui` | Launch the Web Dashboard |
 
 See [API Reference](docs/API.md) for complete documentation.

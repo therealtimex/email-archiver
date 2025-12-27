@@ -98,6 +98,8 @@ def main():
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
     parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
     
+    parser.add_argument("--account-email", help="Specific account email to sync (for multi-account setup)")
+    
     args = parser.parse_args()
     
     # Handle UI early
@@ -134,14 +136,15 @@ def main():
             embed=args.embed,
             config=config,
             checkpoint=checkpoint,
-            local_only=args.local_only
+            local_only=args.local_only,
+            account_email=args.account_email
         )
     except KeyboardInterrupt:
         logging.info("Process interrupted by user. Exiting...")
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
-def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False, llm_api_key=None, llm_model=None, llm_base_url=None, local_only=False):
+def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False, llm_api_key=None, llm_model=None, llm_base_url=None, local_only=False, account_email=None):
     """Entry point for UI to run sync."""
     config = load_config(CONFIG_PATH)
     
@@ -179,7 +182,8 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
         llm_model=llm_model,
         llm_base_url=llm_base_url,
         check_cancellation=check_ui_cancellation,
-        local_only=local_only
+        local_only=local_only,
+        account_email=account_email
     )
 
 def run_archiver_logic_internal(
@@ -205,7 +209,8 @@ def run_archiver_logic_internal(
     local_only=False,
     check_cancellation=None,
     rename=False,
-    embed=False
+    embed=False,
+    account_email=None
 ):
     # Default 'since' to today if not provided to avoid downloading everything
     if not since and not after_id and not query and not local_only:
@@ -224,6 +229,10 @@ def run_archiver_logic_internal(
         target_download_dir = get_download_dir()
     
     target_download_dir = str(resolve_path(target_download_dir))
+    
+    if account_email:
+        target_download_dir = os.path.join(target_download_dir, account_email)
+        
     os.makedirs(target_download_dir, exist_ok=True)
     logging.info(f"Target download directory: {target_download_dir}")
     
@@ -268,29 +277,51 @@ def run_archiver_logic_internal(
     config['classification'] = classification_config
     classifier = EmailClassifier(config)
     
-    # Apply extraction overrides
-    extraction_config = config.get('extraction', {})
-    if extract:
-        extraction_config['enabled'] = True
-    config['extraction'] = extraction_config
-    
     # Initialize extractor
     extractor = EmailExtractor(config)
     
+    # Discovery of account email if not provided (Gmail/M365 might know 'me')
+    # But for now, we prefer explicit. If not explicit, we'll try to get it from handlers.
+
     # Open metadata file
     metadata_file_handle = None
     if classifier.enabled or extractor.enabled:
         metadata_path = classification_config.get('metadata_file', 'email_metadata.jsonl')
+        # If per-account, maybe scope metadata output too?
+        if account_email:
+             # Just a thought, for now keep global as specified in plan if not explicitly scoped
+             pass
         metadata_file_handle = open(metadata_path, 'a', encoding='utf-8')
         logging.info(f"Metadata will be saved to: {metadata_path}")
 
     handler = None
     if provider == 'gmail':
-        handler = GmailHandler(config)
+        handler = GmailHandler(config, account_email=account_email)
     elif provider == 'm365':
-        handler = GraphHandler(config)
+        handler = GraphHandler(config, account_email=account_email)
         
     logging.info(f"Initialized {provider} handler.")
+    
+    # If account_email was None, try to get it from authenticated handler
+    if not account_email:
+        # We need to authenticate to discover
+        if provider == 'gmail':
+            # This might trigger interactive auth in TTY
+            try:
+                handler.authenticate()
+                account_email = handler.account_email
+            except: pass
+        elif provider == 'm365':
+            try:
+                handler.authenticate()
+                account_email = handler.account_email
+            except: pass
+        
+    if account_email:
+        logging.info(f"Syncing account: {account_email}")
+    else:
+        account_email = "default"
+        logging.warning("Account email not provided or discovered. Using 'default'.")
 
     
     # ---------------------------
@@ -330,7 +361,7 @@ def run_archiver_logic_internal(
                 
             if incremental:
                 # Checkpoint for Gmail: 'last_internal_date' (milliseconds)
-                last_ts = db.get_checkpoint('gmail')
+                last_ts = db.get_checkpoint('gmail', account_email=account_email)
                 if not last_ts:
                      # Fallback to legay if needed (migration should have handled it)
                      last_ts = checkpoint.get('gmail', {}).get('last_internal_date', 0)
@@ -360,7 +391,7 @@ def run_archiver_logic_internal(
                 
             # Incremental
             if incremental:
-                last_time = db.get_checkpoint('m365')
+                last_time = db.get_checkpoint('m365', account_email=account_email)
                 if not last_time:
                     last_time = checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
                 filter_parts.append(f"receivedDateTime gt {last_time}")
@@ -388,8 +419,8 @@ def run_archiver_logic_internal(
     max_checkpoint_val = 0 # Track strict ordering if possible, or just max seen
     
     # For checkpoint updates
-    current_gmail_checkpoint = db.get_checkpoint('gmail') or checkpoint.get('gmail', {}).get('last_internal_date', 0)
-    current_m365_checkpoint = db.get_checkpoint('m365') or checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
+    current_gmail_checkpoint = db.get_checkpoint('gmail', account_email=account_email) or checkpoint.get('gmail', {}).get('last_internal_date', 0)
+    current_m365_checkpoint = db.get_checkpoint('m365', account_email=account_email) or checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
 
     for i, msg in enumerate(tqdm(ids_to_fetch)):
         # Check for cancellation
@@ -505,6 +536,7 @@ def run_archiver_logic_internal(
                         recipients=f"{recipients_to}, {recipients_cc}".strip(", "),
                         received_at=timestamp,
                         file_path=file_path,
+                        account_email=account_email,
                         classification=classification,
                         extraction=extraction
                     )
@@ -546,23 +578,24 @@ def run_archiver_logic_internal(
                     recipients=f"{recipients_to}, {recipients_cc}".strip(", "),
                     received_at=timestamp,
                     file_path=file_path,
+                    account_email=account_email,
                     classification=classification,
                     extraction=extraction
                 )
                 
             if success_count % 10 == 0 and success_count > 0:
                 if provider == 'm365':
-                    db.save_checkpoint('m365', current_m365_checkpoint)
+                    db.save_checkpoint('m365', current_m365_checkpoint, account_email=account_email)
                 elif provider == 'gmail':
-                    db.save_checkpoint('gmail', current_gmail_checkpoint)
+                    db.save_checkpoint('gmail', current_gmail_checkpoint, account_email=account_email)
         
     if metadata_file_handle:
         metadata_file_handle.close()
     
     if provider == 'm365':
-        db.save_checkpoint('m365', current_m365_checkpoint)
+        db.save_checkpoint('m365', current_m365_checkpoint, account_email=account_email)
     elif provider == 'gmail':
-        db.save_checkpoint('gmail', current_gmail_checkpoint)
+        db.save_checkpoint('gmail', current_gmail_checkpoint, account_email=account_email)
         
     logging.info(f"Sync complete. Processed {len(ids_to_fetch)} messages. New files: {success_count}. Updated: {len(ids_to_fetch) - success_count if local_only else 'N/A'}")
 
