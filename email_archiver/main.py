@@ -2,6 +2,7 @@ import argparse
 import yaml
 import json
 import os
+import sys
 import logging
 from datetime import datetime
 from tqdm import tqdm
@@ -23,7 +24,8 @@ from email_archiver.core.paths import (
     get_log_path, 
     get_auth_dir, 
     get_download_dir,
-    resolve_path
+    resolve_path,
+    get_db_path
 )
 
 # Robust path handling

@@ -59,7 +59,7 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: #fff;
             border-radius: 0.75rem;
-            padding: 0.6rem 1rem;
+            padding: 0.75rem 1rem;
             width: 100%;
             transition: all 0.2s;
         }
@@ -68,6 +68,11 @@
             outline: none;
             border-color: rgba(99, 102, 241, 0.5);
             background: rgba(255, 255, 255, 0.06);
+        }
+
+        /* Typography Scale - Improved Readability */
+        .text-tiny {
+            font-size: 11px;
         }
     </style>
     <script>
@@ -98,7 +103,7 @@
                     <div>
                         <h1 class="text-xl font-bold text-gradient"
                             x-text="activeTab === 'dashboard' ? 'Archive Intelligence' : 'System Configuration'"></h1>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest"
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider"
                             x-text="activeTab === 'dashboard' ? 'Dashboard v' + appVersion : 'Control Center'"></p>
                     </div>
                 </div>
@@ -147,7 +152,7 @@
                         <div class="absolute inset-0 rounded-full"
                             :class="status.is_running ? 'bg-green-500' : 'bg-slate-600'"></div>
                     </div>
-                    <span class="text-[10px] font-black uppercase tracking-[0.2em]"
+                    <span class="text-xs font-black uppercase tracking-wider"
                         :class="status.is_running ? 'text-green-400' : 'text-slate-500'"
                         x-text="status.is_running ? 'SYNC ACTIVE' : 'SYSTEM READY'"></span>
                 </div>
@@ -190,28 +195,28 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="glass p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs font-medium text-slate-500 tracking-wider">TOTAL ARCHIVED</span>
+                            <span class="text-xs font-medium text-slate-400 tracking-wider">TOTAL ARCHIVED</span>
                             <span class="text-primary text-xl">📁</span>
                         </div>
                         <div class="text-3xl font-bold mb-1" x-text="stats.total_archived.toLocaleString()">0</div>
-                        <div class="text-[10px] text-slate-500">Updated: Just Now</div>
+                        <div class="text-tiny text-slate-500">Updated: Just Now</div>
                     </div>
                     <div class="glass p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs font-medium text-slate-500 tracking-wider">AI CLASSIFIED</span>
+                            <span class="text-xs font-medium text-slate-400 tracking-wider">AI CLASSIFIED</span>
                             <span class="text-secondary text-xl">🧠</span>
                         </div>
                         <div class="text-3xl font-bold mb-1" x-text="stats.classified.toLocaleString()">0</div>
-                        <div class="text-[10px] text-green-400/80">Active Categories: <span
+                        <div class="text-tiny text-green-400/80">Active Categories: <span
                                 x-text="Object.keys(stats.categories).length">0</span></div>
                     </div>
                     <div class="glass p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs font-medium text-slate-500 tracking-wider">DATA ENTITIES</span>
+                            <span class="text-xs font-medium text-slate-400 tracking-wider">DATA ENTITIES</span>
                             <span class="text-indigo-400 text-xl">📊</span>
                         </div>
                         <div class="text-3xl font-bold mb-1" x-text="stats.extracted.toLocaleString()">0</div>
-                        <div class="text-[10px] text-indigo-400/80">Structured Extraction Enabled</div>
+                        <div class="text-tiny text-indigo-400/80">Structured Extraction Enabled</div>
                     </div>
                 </div>
 
@@ -235,7 +240,7 @@
                                     <div class="text-xl font-bold tracking-widest text-white"
                                         x-text="status.is_running ? (status.is_cancelled ? 'HALTING' : 'STOP') : 'SYNC'">
                                         SYNC</div>
-                                    <div class="text-[9px] text-slate-500 mt-1 uppercase"
+                                    <div class="text-xs text-slate-500 mt-1 uppercase"
                                         x-text="status.is_running ? (status.is_cancelled ? 'Stopping...' : 'Abort Sync') : 'Initiate Task'">
                                         Initiate Task</div>
                                     <div class="mt-3 text-2xl transition-transform"
@@ -251,7 +256,7 @@
                             <button x-show="!status.is_running" @click="triggerSync(true)"
                                 class="flex items-center gap-2 px-3 py-1.5 rounded-full glass border border-white/10 hover:bg-white/10 transition-colors group/btn relative z-20">
                                 <span
-                                    class="text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover/btn:text-slate-200">Re-analyze
+                                    class="text-xs font-bold text-slate-400 uppercase tracking-wider group-hover/btn:text-slate-200">Re-analyze
                                     Local Archive</span>
                                 <svg xmlns="http://www.w3.org/2000/svg"
                                     class="w-3 h-3 text-slate-500 group-hover/btn:rotate-180 transition-transform"
@@ -266,7 +271,7 @@
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label
-                                            class="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Provider</label>
+                                            class="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Provider</label>
                                         <select x-model="syncConfig.provider"
                                             class="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-sm focus:outline-none focus:border-primary/50 text-white">
                                             <option class="bg-slate-900" value="gmail">Gmail</option>
@@ -283,7 +288,7 @@
                                                 </div>
                                             </div>
                                             <span
-                                                class="text-[10px] font-bold text-slate-500 uppercase">Incremental</span>
+                                                class="text-xs font-bold text-slate-400 uppercase">Incremental</span>
                                         </label>
                                     </div>
                                 </div>
@@ -291,24 +296,24 @@
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.classify" class="accent-primary">
-                                        <span class="text-[11px] font-semibold text-slate-300">AI Classify</span>
+                                        <span class="text-sm font-semibold text-slate-300">AI Classify</span>
                                     </label>
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.extract" class="accent-indigo-500">
-                                        <span class="text-[11px] font-semibold text-slate-300">Deep Extract</span>
+                                        <span class="text-sm font-semibold text-slate-300">Deep Extract</span>
                                     </label>
                                 </div>
                                 <div class="flex gap-4">
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.rename" class="accent-amber-500">
-                                        <span class="text-[11px] font-semibold text-slate-300">Rename Files</span>
+                                        <span class="text-sm font-semibold text-slate-300">Rename Files</span>
                                     </label>
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.embed" class="accent-emerald-500">
-                                        <span class="text-[11px] font-semibold text-slate-300">Embed Metadata</span>
+                                        <span class="text-sm font-semibold text-slate-300">Embed Metadata</span>
                                     </label>
                                 </div>
 
@@ -321,28 +326,28 @@
                                                 d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                                         </svg>
                                         <span
-                                            class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Advanced
+                                            class="text-xs font-bold text-slate-400 uppercase tracking-wider">Advanced
                                             Filters</span>
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label
-                                                class="block text-[10px] text-slate-500 mb-1 uppercase font-bold">Since
+                                                class="block text-xs text-slate-400 mb-1 uppercase font-bold">Since
                                                 Date</label>
                                             <input type="date" x-model="syncConfig.since"
                                                 class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white">
                                         </div>
                                         <div>
                                             <label
-                                                class="block text-[10px] text-slate-500 mb-1 uppercase font-bold">After
+                                                class="block text-xs text-slate-400 mb-1 uppercase font-bold">After
                                                 ID</label>
                                             <input type="text" x-model="syncConfig.after_id" placeholder="Optional"
                                                 class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white placeholder:text-slate-600">
                                         </div>
                                     </div>
                                     <div>
-                                        <label class="block text-[10px] text-slate-500 mb-1 uppercase font-bold">Search
+                                        <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Search
                                             Query</label>
                                         <input type="text" x-model="syncConfig.query"
                                             placeholder="e.g. from:invoice label:unread"
@@ -356,7 +361,7 @@
                         <div
                             class="flex-1 w-full flex flex-col h-full min-h-[250px] glass rounded-2xl overflow-hidden border border-white/10 self-stretch">
                             <div class="bg-white/5 px-4 py-2 border-b border-white/5 flex justify-between items-center">
-                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Process
+                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Process
                                     Output</span>
                                 <div class="flex gap-2">
                                     <span
@@ -368,7 +373,7 @@
                                 </div>
                             </div>
                             <div x-ref="logConsole"
-                                class="flex-1 p-4 font-mono text-[11px] space-y-1 overflow-y-auto max-h-[350px] leading-relaxed">
+                                class="flex-1 p-4 font-mono text-xs space-y-1 overflow-y-auto max-h-[350px] leading-relaxed">
                                 <template x-for="log in status.logs">
                                     <div class="flex gap-3">
                                         <span class="text-slate-600 shrink-0"
@@ -396,10 +401,10 @@
                             Intelligence Feed
                         </h2>
                         <div class="flex items-center gap-4">
-                            <span class="text-[10px] text-slate-500" x-show="search">Showing results for: "<span
+                            <span class="text-xs text-slate-500" x-show="search">Showing results for: "<span
                                     x-text="search"></span>"</span>
                             <button @click="resetAndFetch()"
-                                class="text-[10px] font-bold text-primary hover:text-primary/80 uppercase tracking-widest transition-colors">Refresh
+                                class="text-xs font-bold text-primary hover:text-primary/80 uppercase tracking-wider transition-colors">Refresh
                                 View</button>
                         </div>
                     </div>
@@ -407,11 +412,11 @@
                         <table class="w-full text-left text-sm border-collapse">
                             <thead>
                                 <tr
-                                    class="text-slate-500 uppercase text-[10px] tracking-widest border-b border-white/5">
-                                    <th class="px-6 py-4 font-medium">Subject</th>
-                                    <th class="px-6 py-4 font-medium">Sender</th>
-                                    <th class="px-6 py-4 font-medium">Date</th>
-                                    <th class="px-6 py-4 font-medium">Classification</th>
+                                    class="text-slate-400 uppercase text-xs tracking-wide border-b border-white/5">
+                                    <th class="px-6 py-4 font-semibold">Subject</th>
+                                    <th class="px-6 py-4 font-semibold">Sender</th>
+                                    <th class="px-6 py-4 font-semibold">Date</th>
+                                    <th class="px-6 py-4 font-semibold">Classification</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">
@@ -423,17 +428,17 @@
                                         <td class="px-6 py-4 text-slate-400 truncate max-w-[150px]"
                                             x-text="email.sender">
                                         </td>
-                                        <td class="px-6 py-4 text-[10px] text-slate-500 whitespace-nowrap"
+                                        <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap"
                                             x-text="formatDate(email.received_at)"></td>
                                         <td class="px-6 py-4">
                                             <div class="flex items-center gap-2">
                                                 <template x-if="email.classification">
                                                     <span :class="getBadgeClass(email.classification.category)"
-                                                        class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
+                                                        class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide"
                                                         x-text="email.classification.category"></span>
                                                 </template>
                                                 <template x-if="!email.classification">
-                                                    <span class="text-slate-700 text-[10px]">UNPROCESSED</span>
+                                                    <span class="text-slate-700 text-xs">UNPROCESSED</span>
                                                 </template>
                                                 <span x-show="email.extraction" class="text-xs"
                                                     title="Deep Extraction Available">🧩</span>
@@ -448,7 +453,7 @@
                         </div>
                         <div class="p-4 flex justify-center border-t border-white/5" x-show="emails.length > 0">
                             <button @click="loadMore()" :disabled="isLoadingMore"
-                                class="px-6 py-1 glass rounded-lg text-[10px] font-bold text-slate-400 hover:text-primary transition-all uppercase tracking-widest flex items-center gap-2">
+                                class="px-6 py-2 glass rounded-lg text-xs font-bold text-slate-400 hover:text-primary transition-all uppercase tracking-wider flex items-center gap-2">
                                 <span x-show="isLoadingMore"
                                     class="w-3 h-3 border border-slate-500 border-t-primary rounded-full animate-spin"></span>
                                 Load More Messages
@@ -485,14 +490,14 @@
                                     </label>
                                     <div>
                                         <label
-                                            class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Endpoint
+                                            class="block text-xs font-bold text-slate-400 mb-1 uppercase">Endpoint
                                             URL</label>
                                         <input type="text" x-model="config.webhook.url" class="input-glass"
                                             placeholder="https://..." :disabled="!config.webhook.enabled">
                                     </div>
                                     <div>
                                         <label
-                                            class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Authorization
+                                            class="block text-xs font-bold text-slate-400 mb-1 uppercase">Authorization
                                             Secret</label>
                                         <input type="password" x-model="config.webhook.headers.Authorization"
                                             class="input-glass" placeholder="Optional token"
@@ -530,20 +535,20 @@
                                     <div class="flex justify-between items-end">
                                         <div>
                                             <label
-                                                class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Presets</label>
+                                                class="block text-xs font-bold text-slate-400 mb-1 uppercase">Presets</label>
                                             <div class="flex gap-2">
                                                 <button @click="setLLMPreset('openai')"
-                                                    class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-bold border border-white/5 transition-all">OpenAI</button>
+                                                    class="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded text-xs font-bold border border-white/5 transition-all">OpenAI</button>
                                                 <button @click="setLLMPreset('ollama')"
-                                                    class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-bold border border-white/5 transition-all">Ollama</button>
+                                                    class="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded text-xs font-bold border border-white/5 transition-all">Ollama</button>
                                                 <button @click="setLLMPreset('lm_studio')"
-                                                    class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-bold border border-white/5 transition-all">LM
+                                                    class="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded text-xs font-bold border border-white/5 transition-all">LM
                                                     Studio</button>
                                             </div>
                                         </div>
                                         <div class="flex-1 ml-4">
                                             <label
-                                                class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Model</label>
+                                                class="block text-xs font-bold text-slate-400 mb-1 uppercase">Model</label>
                                             <input type="text" x-model="config.classification.model"
                                                 class="input-glass py-2 px-3" placeholder="gpt-4o-mini">
                                         </div>
@@ -551,14 +556,14 @@
                                 </div>
 
                                 <div x-show="config.classification.enabled">
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">LLM API
+                                    <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">LLM API
                                         Key</label>
                                     <input type="password" x-model="config.classification.api_key" class="input-glass"
                                         placeholder="sk-... (Optional for local LLMs)">
                                 </div>
 
                                 <div x-show="config.classification.enabled">
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Base
+                                    <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">Base
                                         URL</label>
                                     <input type="text" x-model="config.classification.base_url" class="input-glass"
                                         placeholder="Leave empty for OpenAI default">
@@ -579,7 +584,7 @@
                                         </div>
                                     </label>
                                 </div>
-                                <p class="text-[11px] text-slate-500">Enable advanced metadata extraction of summaries,
+                                <p class="text-sm text-slate-400">Enable advanced metadata extraction of summaries,
                                     action items, and entities.</p>
                             </div>
                         </div>
@@ -604,16 +609,16 @@
                         <div class="flex justify-between items-center">
                             <h4 class="text-sm font-bold text-slate-300">Google Client Secrets</h4>
                             <span :class="authStatus.gmail ? 'text-green-400' : 'text-slate-500'"
-                                class="text-[10px] font-bold uppercase"
+                                class="text-xs font-bold uppercase"
                                 x-text="authStatus.gmail ? 'Connected' : 'Disconnected'"></span>
                         </div>
-                        <p class="text-[10px] text-slate-500">Paste your <code>credentials.json</code> content here to
+                        <p class="text-xs text-slate-400">Paste your <code>credentials.json</code> content here to
                             enable Gmail sync.</p>
                         <textarea x-model="gmailSecretJson" rows="4"
-                            class="w-full bg-slate-900/50 border border-white/5 rounded-xl p-3 text-[10px] font-mono text-slate-300 focus:outline-none focus:border-primary/50 transition-all"
+                            class="w-full bg-slate-900/50 border border-white/5 rounded-xl p-3 text-xs font-mono text-slate-300 focus:outline-none focus:border-primary/50 transition-all"
                             placeholder='{ "installed": { ... } }'></textarea>
                         <button @click="saveSecret('gmail')" :disabled="!gmailSecretJson"
-                            class="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold text-slate-300 transition-all border border-white/5">
+                            class="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-slate-300 transition-all border border-white/5">
                             Update Gmail Secrets
                         </button>
                     </div>
@@ -623,16 +628,16 @@
                         <div class="flex justify-between items-center">
                             <h4 class="text-sm font-bold text-slate-300">M365 Configuration</h4>
                             <span :class="authStatus.m365 ? 'text-green-400' : 'text-slate-500'"
-                                class="text-[10px] font-bold uppercase"
+                                class="text-xs font-bold uppercase"
                                 x-text="authStatus.m365 ? 'Connected' : 'Disconnected'"></span>
                         </div>
-                        <p class="text-[10px] text-slate-500">Paste your MSAL <code>config.json</code> or leave empty if
+                        <p class="text-xs text-slate-400">Paste your MSAL <code>config.json</code> or leave empty if
                             using settings above.</p>
                         <textarea x-model="m365SecretJson" rows="4"
-                            class="w-full bg-slate-900/50 border border-white/5 rounded-xl p-3 text-[10px] font-mono text-slate-300 focus:outline-none focus:border-indigo-500/50 transition-all"
+                            class="w-full bg-slate-900/50 border border-white/5 rounded-xl p-3 text-xs font-mono text-slate-300 focus:outline-none focus:border-indigo-500/50 transition-all"
                             placeholder='{ "client_id": "...", "authority": "..." }'></textarea>
                         <button @click="saveSecret('m365')" :disabled="!m365SecretJson"
-                            class="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold text-slate-300 transition-all border border-white/5">
+                            class="w-full py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-slate-300 transition-all border border-white/5">
                             Update M365 Secrets
                         </button>
                     </div>
@@ -749,16 +754,16 @@
             <template x-if="authFlow?.provider === 'gmail'">
                 <div class="space-y-6">
                     <div class="space-y-2">
-                        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 1:
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Step 1:
                             Authorization</p>
                         <p class="text-sm text-slate-400">Open the link below to authorize access to your Gmail
                             account:</p>
                         <a :href="authFlow.url" target="_blank"
-                            class="block p-4 bg-white/5 rounded-2xl text-primary text-[10px] font-mono break-all border border-primary/20 hover:bg-primary/5 transition-all"
+                            class="block p-4 bg-white/5 rounded-2xl text-primary text-xs font-mono break-all border border-primary/20 hover:bg-primary/5 transition-all"
                             x-text="authFlow.url"></a>
                     </div>
                     <div class="space-y-2">
-                        <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 2: Validation
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Step 2: Validation
                         </p>
                         <p class="text-sm text-slate-400">Paste the authorization code provided by Google below:
                         </p>
@@ -780,7 +785,7 @@
                         </div>
                         <div class="flex items-start gap-3 p-4 bg-white/5 rounded-xl border border-white/5">
                             <span class="text-xl">ℹ️</span>
-                            <p class="text-[11px] text-slate-500 leading-relaxed">Once you enter the code in the
+                            <p class="text-sm text-slate-400 leading-relaxed">Once you enter the code in the
                                 Microsoft portal, this dashboard will automatically detect the connection.</p>
                         </div>
                     </div>
@@ -828,16 +833,16 @@
                 <!-- Intelligence Panel -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-primary/5 rounded-2xl p-5 border border-primary/10">
-                        <h4 class="text-[10px] font-bold text-primary uppercase tracking-widest mb-3">
+                        <h4 class="text-xs font-bold text-primary uppercase tracking-wider mb-3">
                             Classification</h4>
                         <template x-if="selectedEmail?.classification">
                             <div class="space-y-4">
                                 <div class="flex items-center gap-3">
                                     <span :class="getBadgeClass(selectedEmail.classification.category)"
-                                        class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                        class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide"
                                         x-text="selectedEmail.classification.category"></span>
                                     <span x-show="selectedEmail.classification.reasoning"
-                                        class="text-[10px] text-slate-500">AI Confidence: High</span>
+                                        class="text-xs text-slate-500">AI Confidence: High</span>
                                 </div>
                                 <p class="text-sm text-slate-300 leading-relaxed"
                                     x-text="selectedEmail.classification.reasoning"></p>
@@ -850,24 +855,24 @@
                     </div>
 
                     <div class="bg-secondary/5 rounded-2xl p-5 border border-secondary/10">
-                        <h4 class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-3">System
+                        <h4 class="text-xs font-bold text-secondary uppercase tracking-wider mb-3">System
                             Info</h4>
                         <div class="space-y-3">
                             <div class="flex justify-between">
-                                <span class="text-[10px] text-slate-500 font-bold uppercase">Source</span>
-                                <span class="text-[10px] text-slate-300 font-bold uppercase"
+                                <span class="text-xs text-slate-400 font-bold uppercase">Source</span>
+                                <span class="text-xs text-slate-300 font-bold uppercase"
                                     x-text="selectedEmail?.provider"></span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-[10px] text-slate-500 font-bold uppercase">Archived</span>
-                                <span class="text-[10px] text-slate-300 font-bold uppercase"
+                                <span class="text-xs text-slate-400 font-bold uppercase">Archived</span>
+                                <span class="text-xs text-slate-300 font-bold uppercase"
                                     x-text="formatDate(selectedEmail?.processed_at)"></span>
                             </div>
                             <div class="pt-2 border-t border-white/5">
-                                <span class="text-[10px] text-slate-500 font-bold uppercase block mb-1">Local
+                                <span class="text-xs text-slate-400 font-bold uppercase block mb-1">Local
                                     Path</span>
                                 <code
-                                    class="text-[10px] text-indigo-300/80 block break-all font-mono bg-black/20 p-2 rounded"
+                                    class="text-xs text-indigo-300/80 block break-all font-mono bg-black/20 p-2 rounded"
                                     x-text="selectedEmail?.file_path"></code>
                             </div>
                         </div>
@@ -877,19 +882,19 @@
                 <!-- Extraction Results -->
                 <template x-if="selectedEmail?.extraction">
                     <div class="glass rounded-2xl p-6 border border-white/5">
-                        <h4 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-4">Deep
+                        <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-4">Deep
                             Extraction Results</h4>
 
                         <div class="space-y-6">
                             <div>
-                                <span class="text-[10px] text-slate-500 font-bold uppercase block mb-1">Summary</span>
+                                <span class="text-xs text-slate-400 font-bold uppercase block mb-1">Summary</span>
                                 <p class="text-sm text-slate-200 leading-relaxed"
                                     x-text="selectedEmail.extraction.summary"></p>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div x-show="selectedEmail.extraction.action_items?.length">
-                                    <span class="text-[10px] text-slate-500 font-bold uppercase block mb-2">Action
+                                    <span class="text-xs text-slate-400 font-bold uppercase block mb-2">Action
                                         Items</span>
                                     <ul class="space-y-2">
                                         <template x-for="item in selectedEmail.extraction.action_items">
@@ -901,11 +906,11 @@
                                     </ul>
                                 </div>
                                 <div x-show="selectedEmail.extraction.organizations?.length">
-                                    <span class="text-[10px] text-slate-500 font-bold uppercase block mb-2">Relevant
+                                    <span class="text-xs text-slate-400 font-bold uppercase block mb-2">Relevant
                                         Entities</span>
                                     <div class="flex flex-wrap gap-2">
                                         <template x-for="org in selectedEmail.extraction.organizations">
-                                            <span class="px-2 py-1 bg-white/5 rounded text-[10px] text-slate-400"
+                                            <span class="px-2 py-1 bg-white/5 rounded text-xs text-slate-400"
                                                 x-text="org"></span>
                                         </template>
                                     </div>
