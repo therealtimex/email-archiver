@@ -239,6 +239,50 @@ def send_to_webhook(file_path, url, headers=None):
         logging.error(f"❌ Failed to send to webhook: {e}")
         return False
 
+
     except Exception as e:
         logging.error(f"❌ Unexpected error sending to webhook: {e}")
         return False
+
+def perform_reset():
+    """
+    Wipes all data for a clean slate.
+    Deletes DB, Logs, and Downloads.
+    Preserves Authentication.
+    """
+    import shutil
+    from email_archiver.core.paths import get_db_path, get_log_path, get_download_dir
+    
+    deleted_items = []
+    
+    # 1. Delete DB
+    db_path = get_db_path()
+    if os.path.exists(db_path):
+        try:
+            os.remove(db_path)
+            logging.info(f"✅ Deleted database: {db_path}")
+            deleted_items.append("Database")
+        except Exception as e:
+            logging.error(f"❌ Failed to delete database: {e}")
+    
+    # 2. Delete Logs
+    log_path = get_log_path()
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+            logging.info(f"✅ Deleted logs: {log_path}")
+            deleted_items.append("Logs")
+        except Exception as e:
+            logging.error(f"❌ Failed to delete logs: {e}")
+            
+    # 3. Delete Downloads
+    dl_dir = get_download_dir()
+    if os.path.exists(dl_dir):
+        try:
+            shutil.rmtree(dl_dir)
+            logging.info(f"✅ Deleted downloads: {dl_dir}")
+            deleted_items.append("Downloads Directory")
+        except Exception as e:
+            logging.error(f"❌ Failed to delete downloads directory: {e}")
+            
+    return deleted_items

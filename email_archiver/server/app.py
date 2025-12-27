@@ -243,6 +243,39 @@ async def run_sync_task(provider: str, incremental: bool, classify: bool, extrac
         sync_status["progress"] = 100
         root_logger.removeHandler(ui_log_handler)
 
+@app.post("/api/stop")
+async def stop_server(background_tasks: BackgroundTasks):
+    """Gracefully stops the server."""
+    logging.info("Received stop request via API.")
+    # Schedule the shutdown to happen shortly after responding
+    background_tasks.add_task(shutdown_server)
+    return {"status": "stopping", "message": "Server is shutting down..."}
+
+@app.post("/api/reset")
+async def factory_reset(background_tasks: BackgroundTasks):
+    """
+    Performs a factory reset (wipes DB, Logs, Downloads) and shuts down.
+    """
+    from email_archiver.core.utils import perform_reset
+    
+    logging.warning("⚠️ Received FACTORY RESET request via API.")
+    
+    try:
+        deleted_items = perform_reset()
+        logging.info(f"Factory reset successful. Deleted: {deleted_items}")
+        
+        # Shutdown is required because DB/Logs are gone
+        background_tasks.add_task(shutdown_server)
+        
+        return {
+            "status": "success", 
+            "message": "Factory reset complete. Server is shutting down.",
+            "deleted": deleted_items
+        }
+    except Exception as e:
+        logging.error(f"Factory reset failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+        
 @app.post("/api/sync")
 async def trigger_sync(request: SyncRequest, background_tasks: BackgroundTasks):
     if sync_status["is_running"]:

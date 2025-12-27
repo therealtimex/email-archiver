@@ -70,6 +70,32 @@ def save_checkpoint(path, data):
     with open(path, 'w') as f:
         json.dump(data, f, indent=2)
 
+def perform_factory_reset():
+    """Wipes all data for a clean slate."""
+    from email_archiver.core.utils import perform_reset
+    
+    print("\n⚠️  FACTORY RESET INITIATED ⚠️")
+    print("This will PERMANENTLY DELETE:")
+    print(f"  - Database: {get_db_path()}")
+    print(f"  - Logs: {get_log_path()}")
+    print(f"  - Downloads: {get_download_dir()}")
+    print("Authentication tokens in 'auth/' will be PRESERVED.")
+    
+    confirm = input("\nAre you sure you want to delete ALL data? (y/N): ").lower().strip()
+    if confirm != 'y':
+        print("Reset cancelled.")
+        return
+
+    print("\nDeleting data...")
+    deleted = perform_reset()
+    
+    if deleted:
+        print("\n✨ Factory reset complete. You can now start fresh.")
+        sys.exit(0)
+    else:
+        print("\n⚠️  Reset attempted, but no files were deleted (maybe already clean?).")
+        sys.exit(1)
+
 def main():
     setup_logging(os.getenv('EESA_LOG_FILE'))
     
@@ -97,8 +123,13 @@ def main():
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
     parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
+    parser.add_argument('--reset', action='store_true', help='FACTORY RESET: Deletes all data (DB, logs, downloads) to start fresh.')
     
     args = parser.parse_args()
+
+    if args.reset:
+        perform_factory_reset()
+        return
     
     # Handle UI early
     if args.ui:
