@@ -522,12 +522,14 @@
                                     </div>
                                 </div>
 
-                                <div
-                                    x-show="config.classification.enabled && config.classification.provider === 'openai'">
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">API
-                                        Key</label>
-                                    <input type="password" x-model="config.classification.openai_api_key"
-                                        class="input-glass" placeholder="sk-...">
+                                <div x-show="config.classification.enabled">
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
+                                        LLM API Key
+                                        <span x-show="config.classification.provider !== 'openai'"
+                                            class="text-[8px] opacity-60">(Optional)</span>
+                                    </label>
+                                    <input type="password" x-model="config.classification.api_key" class="input-glass"
+                                        :placeholder="config.classification.provider === 'openai' ? 'sk-...' : 'Not needed for most local providers'">
                                 </div>
 
                                 <div
@@ -831,7 +833,7 @@
                 config: {
                     app: { download_dir: 'downloads/' },
                     webhook: { enabled: false, url: '', headers: { Authorization: '' } },
-                    classification: { enabled: false, provider: 'openai', model: '', openai_api_key: '', base_url: '' },
+                    classification: { enabled: false, provider: 'openai', model: '', api_key: '', base_url: '' },
                     extraction: { enabled: false }
                 },
                 appVersion: '...',
@@ -974,8 +976,13 @@
                         if (!data.app) data.app = { download_dir: 'downloads/' };
                         if (!data.webhook) data.webhook = { enabled: false, url: '', headers: { Authorization: '' } };
                         if (!data.webhook.headers) data.webhook.headers = { Authorization: '' };
-                        if (!data.classification) data.classification = { enabled: false, provider: 'openai', model: 'gpt-4o-mini' };
+                        if (!data.classification) data.classification = { enabled: false, provider: 'openai', model: 'gpt-4o-mini', api_key: '' };
                         if (!data.extraction) data.extraction = { enabled: false };
+
+                        // Backward compatibility: map openai_api_key to api_key
+                        if (data.classification.openai_api_key && !data.classification.api_key) {
+                            data.classification.api_key = data.classification.openai_api_key;
+                        }
 
                         this.config = data;
 

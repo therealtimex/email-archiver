@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.6] - 2025-12-26
+
+### Changed
+- **UI Modernization**: Updated the Web Dashboard settings page to use standardized "LLM API Key" labeling and internal field mappings (`api_key`).
+- **Standardization Alignment**: Synchronized UI state with the backend's new LLM configuration standard.
+
 ## [0.8.5] - 2025-12-26
 
 ### Changed
