@@ -86,7 +86,7 @@ def main():
     parser.add_argument('--download-dir', help='Directory to save downloaded .eml files (default: downloads/)')
     # Classification & LLM arguments
     parser.add_argument('--classify', action='store_true', help='Enable AI-powered email classification')
-    parser.add_argument('--openai-api-key', help='OpenAI API key (Legacy, use --llm-api-key)')
+    parser.add_argument('--openai-api-key', help=argparse.SUPPRESS)
     parser.add_argument('--llm-api-key', help='API key for the LLM provider')
     parser.add_argument('--llm-model', help='Model name to use (e.g., gpt-4o-mini, llama3)')
     parser.add_argument('--llm-base-url', help='Base URL for the LLM API')
