@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.15] - 2025-12-26
+
+### Fixed
+- **UI Accessibility**: Moved the "Re-analyze Local Archive" button to a dedicated position below the SYNC button group to prevent click-blocking from absolute-positioned glow effects.
+- **CLI Guidance**: Clarified that the correct command is `email-archiver` (hyphenated) as defined in `pyproject.toml`.
+
 ## [0.8.14] - 2025-12-26
 
 ### Added
