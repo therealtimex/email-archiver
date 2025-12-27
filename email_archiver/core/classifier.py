@@ -108,7 +108,11 @@ class EmailClassifier:
             
             # Parse response
             classification_text = response.choices[0].message.content
-            classification = json.loads(classification_text)
+            classification = self._parse_json_response(classification_text)
+            
+            if not classification:
+                logging.error(f"Failed to parse classification JSON. Raw response: {classification_text[:500]}...")
+                return None
             
             logging.info(f"Classified email '{subject[:50]}...' as '{classification.get('category')}'")
             
@@ -174,5 +178,41 @@ Guidelines:
 - "spam": Unsolicited, suspicious, phishing attempts
 
 Be accurate and concise."""
-        
         return prompt
+
+    def _parse_json_response(self, text: str) -> Optional[Dict]:
+        """
+        Robustly parses JSON from LLM response, handling markdown blocks and extra text.
+        """
+        if not text:
+            return None
+            
+        text = text.strip()
+        
+        # 1. Try direct parsing
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+            
+        # 2. Try removing markdown code blocks
+        if "```" in text:
+            # Look for ```json ... ``` or just ``` ... ```
+            import re
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+            if json_match:
+                try:
+                    return json.loads(json_match.group(1).strip())
+                except json.JSONDecodeError:
+                    pass
+                    
+        # 3. Last ditch effort: find anything between the first { and last }
+        try:
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                return json.loads(text[start:end+1])
+        except (json.JSONDecodeError, ValueError):
+            pass
+            
+        return None

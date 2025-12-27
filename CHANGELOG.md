@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.12] - 2025-12-26
+
+### Fixed
+- **Robust JSON Parsing**: Introduced a sophisticated JSON parsing helper that automatically handles markdown code blocks and extra text in LLM responses. This significantly improves reliability when using local LLM providers like **LM Studio** and **Ollama**.
+- **Enhanced Logging**: Added raw response logging when JSON parsing fails to facilitate easier troubleshooting and debugging.
+
 ## [0.8.11] - 2025-12-26
 
 ### Changed

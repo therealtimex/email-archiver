@@ -82,7 +82,12 @@ class EmailExtractor:
 
             response = self.client.chat.completions.create(**completion_args)
             
-            extraction = json.loads(response.choices[0].message.content)
+            raw_content = response.choices[0].message.content
+            extraction = self._parse_json_response(raw_content)
+            
+            if not extraction:
+                logging.error(f"Failed to parse extraction JSON. Raw response: {raw_content[:500]}...")
+                return None
             logging.info(f"Extracted metadata for '{subject[:50]}...'")
             return extraction
             
@@ -134,3 +139,39 @@ Guidelines:
 - Entities: List specific organizations, people, dates, and amounts found.
 - Structured Data: If it's an invoice, include 'amount', 'due_date', 'invoice_number'. If a meeting, include 'time', 'location', 'attendees'. 
 - Action Items: Extract specific tasks or deadlines required of the recipient."""
+
+    def _parse_json_response(self, text: str) -> Optional[Dict]:
+        """
+        Robustly parses JSON from LLM response, handling markdown blocks and extra text.
+        """
+        if not text:
+            return None
+            
+        text = text.strip()
+        
+        # 1. Try direct parsing
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+            
+        # 2. Try removing markdown code blocks
+        if "```" in text:
+            import re
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+            if json_match:
+                try:
+                    return json.loads(json_match.group(1).strip())
+                except json.JSONDecodeError:
+                    pass
+                    
+        # 3. Last ditch effort: find anything between the first { and last }
+        try:
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                return json.loads(text[start:end+1])
+        except (json.JSONDecodeError, ValueError):
+            pass
+            
+        return None
