@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.0] - 2025-12-26
+
+### Added
+- **Factory Reset**: Added a new `--reset` CLI flag that allows users to perform a complete factory reset. This wipes the database, logs, and downloads directory to provide a clean slate for resolving rigorous data issues, while preserving authentication tokens.
+- **UI "Danger Zone"**: Introduced a "Danger Zone" in the Settings dashboard with a Factory Reset capability, featuring a confirmation modal to prevent accidental data loss.
+
 ## [1.0.0] - 2025-12-26
 
 ### 🚀 Major Release
@@ -15,14 +24,6 @@ All notable changes to this project will be documented in this file.
 ### 🛠 Stability
 - **API Timeouts**: Added explicit timeouts to all external API calls (Microsoft Graph, OpenAI) to prevent the application from hanging.
 - **Robust File Handling**: Implemented try-finally blocks for metadata file operations to ensure file handles are properly closed and to prevent data corruption.
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [0.8.18] - 2025-12-26
 
 ### Fixed
 - **Robust JSON Parsing**: Enhanced the AI response parser to handle LLM outputs containing C-style comments (`//`). This improves resilience when using local LLMs that append explanatory comments to their JSON responses.
