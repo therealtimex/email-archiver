@@ -159,6 +159,9 @@ EESA supports running in restricted environments (Docker, Lambda, etc.) by using
 | `EESA_LOG_FILE` | Path to log file (or `stdout`/`stderr`) | `data_dir/sync.log` |
 | `EESA_AUTH_DIR` | Directory for OAuth tokens | `data_dir/auth` |
 | `EESA_DOWNLOAD_DIR` | Default download directory | `data_dir/downloads` |
+| `LLM_API_KEY` | API key for LLM provider | - |
+| `LLM_BASE_URL` | Base URL for LLM API | - |
+| `LLM_MODEL` | Model name to use | `gpt-4o-mini` |
 
 **Example (Lambda/Read-only FS):**
 ```bash
@@ -186,7 +189,9 @@ email-archiver --provider gmail --incremental
 | `--skip-promotional` | Skip promotional/social emails |
 | `--metadata-output PATH` | Path to save JSONL metadata |
 | `--llm-provider ID` | LLM provider (openai, ollama, etc.) |
-| `--llm-base-url URL` | Custom LLM API endpoint URL |
+| `--llm-base-url URL` | Base URL for LLM API |
+| `--llm-api-key KEY` | API key for LLM provider |
+| `--llm-model NAME` | Model name (e.g., gpt-4o-mini, llama3) |
 | `--extract` | Enable advanced metadata extraction |
 | `--rename` | Intelligently rename .eml files to clean slugs |
 | `--embed` | Embed AI metadata directly into .eml headers |

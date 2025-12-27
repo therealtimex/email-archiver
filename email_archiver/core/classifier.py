@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Optional, List
 from email.message import Message
 import openai
+from email_archiver.core.paths import get_llm_config
 
 class EmailClassifier:
     """
@@ -25,12 +26,17 @@ class EmailClassifier:
         if not self.enabled:
             return
             
-        # Provider configuration
-        self.provider = self.config.get('provider', 'openai').lower()
-        self.base_url = self.config.get('base_url')
-        api_key = self.config.get('api_key') or self.config.get('openai_api_key')
+        # 1. Standardized config from environment/defaults
+        std_config = get_llm_config()
         
-        # Default base URLs for common local providers if not specified
+        # 2. Local/Specific overrides (config file or CLI)
+        self.provider = self.config.get('provider', 'openai').lower()
+        self.base_url = self.config.get('base_url') or std_config.get('base_url')
+        
+        # Resolve API Key: CLI/Config > Env (LLM_API_KEY > OPENAI_API_KEY)
+        api_key = self.config.get('api_key') or self.config.get('openai_api_key') or std_config.get('api_key')
+        
+        # Default base URLs for common local providers if not specified anywhere else
         if not self.base_url:
             if self.provider == 'ollama':
                 self.base_url = "http://localhost:11434/v1"
@@ -48,12 +54,13 @@ class EmailClassifier:
             self.enabled = False
             return
             
+        self.model = self.config.get('model') or std_config.get('model', 'gpt-4o-mini')
         self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url)
-        self.model = self.config.get('model', 'gpt-4o-mini')
+        
         self.categories = self.config.get('categories', self.DEFAULT_CATEGORIES)
         self.skip_categories = self.config.get('skip_categories', [])
         
-        logging.info(f"Email classification enabled with provider: {self.provider}, model: {self.model}")
+        logging.info(f"Email classification enabled with provider: {self.provider if self.base_url else 'openai'}, model: {self.model}")
     
     def should_skip(self, classification: Dict) -> bool:
         """

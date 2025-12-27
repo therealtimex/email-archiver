@@ -84,13 +84,14 @@ def main():
     parser.add_argument('--webhook-secret', help='Authorization secret for the webhook (sets Authorization header)')
     # Download directory override
     parser.add_argument('--download-dir', help='Directory to save downloaded .eml files (default: downloads/)')
-    # Classification arguments
+    # Classification & LLM arguments
     parser.add_argument('--classify', action='store_true', help='Enable AI-powered email classification')
-    parser.add_argument('--openai-api-key', help='OpenAI API key for classification')
+    parser.add_argument('--openai-api-key', help='OpenAI API key (Legacy, use --llm-api-key)')
+    parser.add_argument('--llm-api-key', help='API key for the LLM provider')
+    parser.add_argument('--llm-model', help='Model name to use (e.g., gpt-4o-mini, llama3)')
+    parser.add_argument('--llm-provider', choices=['openai', 'ollama', 'lm_studio', 'local'], default='openai', help='LLM provider (default: openai)')
+    parser.add_argument('--llm-base-url', help='Base URL for the LLM API')
     parser.add_argument('--skip-promotional', action='store_true', help='Skip promotional emails (requires --classify)')
-    parser.add_argument('--metadata-output', help='Output file for classification metadata (JSONL format)')
-    parser.add_argument('--llm-provider', choices=['openai', 'ollama', 'lm_studio', 'local'], default='openai', help='LLM provider for classification (default: openai)')
-    parser.add_argument('--llm-base-url', help='Custom base URL for local LLM API (e.g., http://localhost:11434/v1)')
     parser.add_argument('--extract', action='store_true', help='Enable advanced metadata extraction (v0.5.0+)')
     parser.add_argument('--rename', action='store_true', help='Intelligently rename .eml files to clean slugs (v0.8.4+)')
     parser.add_argument('--embed', action='store_true', help='Embed AI metadata directly into .eml headers (v0.8.4+)')
@@ -126,6 +127,8 @@ def main():
             metadata_output=args.metadata_output,
             llm_provider=args.llm_provider,
             llm_base_url=args.llm_base_url,
+            llm_api_key=args.llm_api_key,
+            llm_model=args.llm_model,
             webhook_url=args.webhook_url,
             webhook_secret=args.webhook_secret,
             download_dir=args.download_dir,
@@ -140,7 +143,7 @@ def main():
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
-def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False):
+def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False, llm_api_key=None, llm_model=None, llm_base_url=None):
     """Entry point for UI to run sync."""
     config = load_config(CONFIG_PATH)
     
@@ -174,6 +177,9 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
         checkpoint=checkpoint,
         rename=rename,
         embed=embed,
+        llm_api_key=llm_api_key,
+        llm_model=llm_model,
+        llm_base_url=llm_base_url,
         check_cancellation=check_ui_cancellation
     )
 
@@ -190,6 +196,8 @@ def run_archiver_logic_internal(
     metadata_output=None,
     llm_provider=None,
     llm_base_url=None,
+    llm_api_key=None,
+    llm_model=None,
     webhook_url=None,
     webhook_secret=None,
     download_dir=None,
@@ -239,6 +247,12 @@ def run_archiver_logic_internal(
     
     if openai_api_key:
         classification_config['openai_api_key'] = openai_api_key
+    
+    if llm_api_key:
+        classification_config['api_key'] = llm_api_key
+        
+    if llm_model:
+        classification_config['model'] = llm_model
     
     if skip_promotional and classify:
         if 'skip_categories' not in classification_config:

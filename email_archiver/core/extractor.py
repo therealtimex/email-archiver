@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Optional, List
 from email.message import Message
 import openai
+from email_archiver.core.paths import get_llm_config
 
 class EmailExtractor:
     """
@@ -16,11 +17,18 @@ class EmailExtractor:
         if not self.enabled:
             return
             
-        # Provider configuration (shares classification's LLM config if not specified)
+        # 1. Standardized config from environment/defaults
+        std_config = get_llm_config()
+        
+        # 2. Local/Specific overrides (config file or CLI)
         llm_config = config.get('classification', {})
         self.provider = self.config.get('provider', llm_config.get('provider', 'openai')).lower()
-        self.base_url = self.config.get('base_url', llm_config.get('base_url'))
-        api_key = self.config.get('api_key') or llm_config.get('api_key') or llm_config.get('openai_api_key')
+        
+        # Resolve Base URL: CLI/Config(Extraction) > CLI/Config(Classification) > Env (LLM_BASE_URL)
+        self.base_url = self.config.get('base_url') or llm_config.get('base_url') or std_config.get('base_url')
+        
+        # Resolve API Key
+        api_key = self.config.get('api_key') or llm_config.get('api_key') or llm_config.get('openai_api_key') or std_config.get('api_key')
         
         if self.provider != 'openai' and not api_key:
             api_key = "not-needed"
@@ -30,10 +38,10 @@ class EmailExtractor:
             self.enabled = False
             return
             
+        self.model = self.config.get('model') or llm_config.get('model') or std_config.get('model', 'gpt-4o-mini')
         self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url)
-        self.model = self.config.get('model', llm_config.get('model', 'gpt-4o-mini'))
         
-        logging.info(f"Advanced extraction enabled with provider: {self.provider}, model: {self.model}")
+        logging.info(f"Advanced extraction enabled with provider: {self.provider if self.base_url else 'openai'}, model: {self.model}")
     
     def extract_metadata(self, email_obj: Message, subject: str = None, sender: str = None) -> Optional[Dict]:
         """

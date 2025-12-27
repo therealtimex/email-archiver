@@ -49,3 +49,18 @@ def resolve_path(path_str: str) -> Path:
     if path.is_absolute():
         return path
     return get_data_dir() / path
+
+def get_llm_config() -> dict:
+    """
+    Returns a normalized LLM configuration from environment variables.
+    Priority: LLM_* > OPENAI_* > Defaults
+    """
+    base_url = os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    model = os.getenv("LLM_MODEL") or "gpt-4o-mini"
+    
+    return {
+        "base_url": base_url,
+        "api_key": api_key,
+        "model": model
+    }
