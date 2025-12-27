@@ -65,15 +65,22 @@ class EmailExtractor:
             
             prompt = self._create_extraction_prompt(subject, sender, body_preview)
             
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+            # Prepare call arguments
+            completion_args = {
+                "model": self.model,
+                "messages": [
                     {"role": "system", "content": "You are an expert at extracting structured information from emails."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.1,
-                response_format={"type": "json_object"}
-            )
+                "temperature": 0.1,
+            }
+
+            # Only add response_format if it's likely OpenAI
+            is_openai = not self.base_url or "openai.com" in self.base_url
+            if is_openai:
+                completion_args["response_format"] = {"type": "json_object"}
+
+            response = self.client.chat.completions.create(**completion_args)
             
             extraction = json.loads(response.choices[0].message.content)
             logging.info(f"Extracted metadata for '{subject[:50]}...'")

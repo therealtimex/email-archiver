@@ -88,16 +88,23 @@ class EmailClassifier:
             # Create classification prompt
             prompt = self._create_classification_prompt(subject, sender, to, cc, body_preview)
             
-            # Call OpenAI
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+            # Prepare OpenAI call arguments
+            completion_args = {
+                "model": self.model,
+                "messages": [
                     {"role": "system", "content": "You are an email classification assistant. Classify emails accurately and provide reasoning."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,  # Lower temperature for more consistent classifications
-                response_format={"type": "json_object"}
-            )
+                "temperature": 0.3,
+            }
+
+            # Only add response_format if it's likely OpenAI
+            is_openai = not self.base_url or "openai.com" in self.base_url
+            if is_openai:
+                completion_args["response_format"] = {"type": "json_object"}
+
+            # Call OpenAI
+            response = self.client.chat.completions.create(**completion_args)
             
             # Parse response
             classification_text = response.choices[0].message.content
