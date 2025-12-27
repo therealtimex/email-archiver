@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.11] - 2025-12-26
+
+### Changed
+- **Sync Engine UI Redesign**: Removed collapsibility of "Advanced Filters" in the Web Dashboard. Critical configurations like **Since Date**, **After ID**, and **Search Query** are now always visible and better integrated into the layout for improved accessibility.
+
 ## [0.8.10] - 2025-12-26
 
 ### Fixed
