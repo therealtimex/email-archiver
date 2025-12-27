@@ -15,6 +15,7 @@ A Python-based command-line utility to programmatically retrieve emails from **G
 - **💾 Incremental Checkpointing** - Resume interrupted downloads
 - **📦 Modern Package Management** - UV/UVX support for easy installation and execution
 - **🛡️ Sandbox Support** - Run in restricted/read-only environments using `EESA_DATA_DIR` (v0.8.3+)
+- **🏷️ Smart Renaming & Embedding** - Clean filenames and X-Header metadata for CRM integration (v0.8.4+)
 
 ## 🚀 Quick Start
 
@@ -187,6 +188,8 @@ email-archiver --provider gmail --incremental
 | `--llm-provider ID` | LLM provider (openai, ollama, etc.) |
 | `--llm-base-url URL` | Custom LLM API endpoint URL |
 | `--extract` | Enable advanced metadata extraction |
+| `--rename` | Intelligently rename .eml files to clean slugs |
+| `--embed` | Embed AI metadata directly into .eml headers |
 | `--ui` | Launch the Web Dashboard |
 
 See [API Reference](docs/API.md) for complete documentation.

@@ -6,7 +6,12 @@ import logging
 from datetime import datetime
 from tqdm import tqdm
 
-from email_archiver.core.utils import setup_logging, generate_filename, send_to_webhook
+from email_archiver.core.utils import (
+    setup_logging, 
+    generate_filename, 
+    send_to_webhook,
+    embed_metadata_in_message
+)
 from email_archiver.core.gmail_handler import GmailHandler
 from email_archiver.core.graph_handler import GraphHandler
 from email_archiver.core.classifier import EmailClassifier
@@ -87,6 +92,8 @@ def main():
     parser.add_argument('--llm-provider', choices=['openai', 'ollama', 'lm_studio', 'local'], default='openai', help='LLM provider for classification (default: openai)')
     parser.add_argument('--llm-base-url', help='Custom base URL for local LLM API (e.g., http://localhost:11434/v1)')
     parser.add_argument('--extract', action='store_true', help='Enable advanced metadata extraction (v0.5.0+)')
+    parser.add_argument('--rename', action='store_true', help='Intelligently rename .eml files to clean slugs (v0.8.4+)')
+    parser.add_argument('--embed', action='store_true', help='Embed AI metadata directly into .eml headers (v0.8.4+)')
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
     parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
@@ -122,6 +129,8 @@ def main():
             webhook_url=args.webhook_url,
             webhook_secret=args.webhook_secret,
             download_dir=args.download_dir,
+            rename=args.rename,
+            embed=args.embed,
             config=config,
             checkpoint=checkpoint,
             local_only=args.local_only
@@ -131,7 +140,7 @@ def main():
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
-def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None):
+def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False):
     """Entry point for UI to run sync."""
     config = load_config(CONFIG_PATH)
     
@@ -163,6 +172,8 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
         query=query,
         config=config,
         checkpoint=checkpoint,
+        rename=rename,
+        embed=embed,
         check_cancellation=check_ui_cancellation
     )
 
@@ -186,7 +197,9 @@ def run_archiver_logic_internal(
     checkpoint=None,
     db_path=None,
     local_only=False,
-    check_cancellation=None
+    check_cancellation=None,
+    rename=False,
+    embed=False
 ):
     # Default 'since' to today if not provided to avoid downloading everything
     if not since and not after_id and not query and not local_only:
@@ -491,7 +504,12 @@ def run_archiver_logic_internal(
                 except:
                     pass
             
-            filename = generate_filename(subject, timestamp, internal_id=msg['id'])
+            if embed and (classification or extraction):
+                logging.info(f"Embedding AI metadata into headers for {msg['id']}")
+                email_obj = embed_metadata_in_message(email_obj, metadata, classification, extraction)
+                file_content = email_obj.as_bytes()
+            
+            filename = generate_filename(subject, timestamp, internal_id=msg['id'], use_slug=rename)
             # Note: target_download_dir was defined in the header of the function
             file_path = os.path.join(target_download_dir, filename)
             

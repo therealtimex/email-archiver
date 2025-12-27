@@ -2,7 +2,10 @@ import re
 import logging
 import os
 import sys
+import json
+import base64
 from datetime import datetime
+from email.utils import formatdate
 
 def setup_logging(log_file=None):
     """
@@ -58,7 +61,30 @@ def sanitize_filename(text):
     # Truncate to 100 chars to leave room for date/id
     return clean_text[:100]
 
-def generate_filename(subject, timestamp, internal_id=None):
+def slugify(text):
+    """
+    Converts a string to a safe, lowercase, hyphen-separated slug.
+    Ideal for Linux/Cloud environments.
+    """
+    if not text:
+        return "no-subject"
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Replace non-alphanumeric characters with hyphens
+    text = re.sub(r'[^a-z0-9]+', '-', text)
+    
+    # Remove leading/trailing hyphens
+    text = text.strip('-')
+    
+    # Collapse multiple hyphens
+    text = re.sub(r'-{2,}', '-', text)
+    
+    # Truncate to 100 chars
+    return text[:100]
+
+def generate_filename(subject, timestamp, internal_id=None, use_slug=False):
     """
     Generates a standardized filename: YYYYMMDD_HHMM_[Subject]_[ID].eml
     """
@@ -75,13 +101,71 @@ def generate_filename(subject, timestamp, internal_id=None):
         dt = datetime.now()
         
     date_str = dt.strftime('%Y%m%d_%H%M')
-    safe_subject = sanitize_filename(subject)
+    
+    if use_slug:
+        safe_subject = slugify(subject)
+        sep = "-"
+    else:
+        safe_subject = sanitize_filename(subject)
+        sep = "_"
     
     # If ID is provided, append a short hash or the ID itself if safe
     # Using last 8 chars of ID if it's long, or full if short
-    id_suffix = f"_{internal_id[-8:]}" if internal_id else ""
+    id_suffix = f"{sep}{internal_id[-8:]}" if internal_id else ""
+    
+    if use_slug:
+        # For slugified, use yyyymmdd-hhmm-slug-id.eml
+        date_str = dt.strftime('%Y%m%d-%H%M')
+        return f"{date_str}-{safe_subject}{id_suffix}.eml"
     
     return f"{date_str}_{safe_subject}{id_suffix}.eml"
+
+def embed_metadata_in_message(email_obj, metadata, classification=None, extraction=None):
+    """
+    Injects AI-generated metadata as X-EESA headers into the email message object.
+    """
+    # X-EESA-Category
+    if classification and classification.get('category'):
+        email_obj['X-EESA-Category'] = classification['category']
+        
+    # X-EESA-Summary
+    if extraction and extraction.get('summary'):
+        email_obj['X-EESA-Summary'] = extraction['summary']
+    elif classification and classification.get('summary'):
+        email_obj['X-EESA-Summary'] = classification['summary']
+        
+    # X-EESA-Sentiment
+    if classification and classification.get('sentiment'):
+        email_obj['X-EESA-Sentiment'] = classification['sentiment']
+        
+    # X-EESA-Entities
+    entities = []
+    if extraction:
+        if extraction.get('organizations'):
+            entities.extend(extraction['organizations'])
+        if extraction.get('people'):
+            entities.extend(extraction['people'])
+    if entities:
+        email_obj['X-EESA-Entities'] = ", ".join(entities[:10]) # Limit to 10 entities
+        
+    # X-EESA-ID
+    if metadata and metadata.get('id'):
+        email_obj['X-EESA-ID'] = metadata['id']
+        
+    # X-EESA-Processed-At
+    email_obj['X-EESA-Processed-At'] = formatdate(localtime=True)
+    
+    # X-EESA-Raw-JSON (Base64 encoded to avoid MIME breakage)
+    raw_data = {
+        "classification": classification,
+        "extraction": extraction,
+        "internal_metadata": metadata
+    }
+    json_str = json.dumps(raw_data)
+    encoded_json = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
+    email_obj['X-EESA-Raw-JSON'] = encoded_json
+    
+    return email_obj
 
 def send_to_webhook(file_path, url, headers=None):
     """

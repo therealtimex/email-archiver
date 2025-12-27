@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.4] - 2025-12-26
+
+### Added
+- **Intelligent Renaming**: Added `--rename` flag to slugify filenames (lowercase, hyphen-separated), resolving potential crashes in downstream systems.
+- **X-Header Embedding**: Added `--embed` flag to inject AI-generated metadata (Category, Summary, Sentiment, Entities) directly into `.eml` headers.
+- **MIME Persistence**: The complete raw AI output is now embedded as a Base64-encoded `X-EESA-Raw-JSON` header, making `.eml` files standalone units of work for `crm-automator`.
+
 ## [0.8.3] - 2025-12-26
 
 ### Added
