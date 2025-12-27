@@ -189,9 +189,15 @@ Be accurate and concise."""
             
         text = text.strip()
         
+        def strip_comments(json_str):
+            import re
+            # Strip C-style comments (// ...) but be careful about URLs or strings
+            # Simple approach: remove anything from // to end of line if not preceded by :
+            return re.sub(r'(?<!:)\/\/.*$', '', json_str, flags=re.MULTILINE)
+
         # 1. Try direct parsing
         try:
-            return json.loads(text)
+            return json.loads(strip_comments(text))
         except json.JSONDecodeError:
             pass
             
@@ -202,7 +208,7 @@ Be accurate and concise."""
             json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
             if json_match:
                 try:
-                    return json.loads(json_match.group(1).strip())
+                    return json.loads(strip_comments(json_match.group(1).strip()))
                 except json.JSONDecodeError:
                     pass
                     
