@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.8] - 2025-12-26
+
+### Changed
+- **Full LLM Standardization**: Removed the redundant `PROVIDER` dependency. LLM configuration is now purely driven by **Base URL**, **API Key**, and **Model**.
+- **Simplified UI**: Replaced the Provider dropdown in settings with quick **Presets** (OpenAI, Ollama, LM Studio) for a faster setup experience.
+- **Backend Refinement**: Core inference logic now automatically detects local vs. cloud providers based on the Base URL, making the API key optional for local endpoints.
+
 ## [0.8.7] - 2025-12-26
 
 ### Added

@@ -22,7 +22,6 @@ class EmailExtractor:
         
         # 2. Local/Specific overrides (config file or CLI)
         llm_config = config.get('classification', {})
-        self.provider = self.config.get('provider', llm_config.get('provider', 'openai')).lower()
         
         # Resolve Base URL: CLI/Config(Extraction) > CLI/Config(Classification) > Env (LLM_BASE_URL)
         self.base_url = self.config.get('base_url') or llm_config.get('base_url') or std_config.get('base_url')
@@ -30,7 +29,10 @@ class EmailExtractor:
         # Resolve API Key
         api_key = self.config.get('api_key') or llm_config.get('api_key') or llm_config.get('openai_api_key') or std_config.get('api_key')
         
-        if self.provider != 'openai' and not api_key:
+        # Infer if we're using a local provider that doesn't need an API key
+        is_openai = not self.base_url or "openai.com" in self.base_url
+        if not is_openai and not api_key:
+            logging.debug("Local LLM detected (via custom base_url), using dummy API key.")
             api_key = "not-needed"
 
         if not api_key:
@@ -41,7 +43,7 @@ class EmailExtractor:
         self.model = self.config.get('model') or llm_config.get('model') or std_config.get('model', 'gpt-4o-mini')
         self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url)
         
-        logging.info(f"Advanced extraction enabled with provider: {self.provider if self.base_url else 'openai'}, model: {self.model}")
+        logging.info(f"Advanced extraction enabled with model: {self.model} (Endpoint: {self.base_url or 'OpenAI'})")
     
     def extract_metadata(self, email_obj: Message, subject: str = None, sender: str = None) -> Optional[Dict]:
         """

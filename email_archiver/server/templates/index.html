@@ -515,41 +515,42 @@
                                     </label>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-4" x-show="config.classification.enabled">
-                                    <div>
-                                        <label
-                                            class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Provider</label>
-                                        <select x-model="config.classification.provider" class="input-glass py-2 px-3">
-                                            <option class="bg-slate-900" value="openai">OpenAI</option>
-                                            <option class="bg-slate-900" value="ollama">Ollama</option>
-                                            <option class="bg-slate-900" value="lm_studio">LM Studio</option>
-                                            <option class="bg-slate-900" value="local">Custom Local</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Model</label>
-                                        <input type="text" x-model="config.classification.model"
-                                            class="input-glass py-2 px-3" placeholder="gpt-4o-mini">
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-end">
+                                        <div>
+                                            <label
+                                                class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Presets</label>
+                                            <div class="flex gap-2">
+                                                <button @click="setLLMPreset('openai')"
+                                                    class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-bold border border-white/5 transition-all">OpenAI</button>
+                                                <button @click="setLLMPreset('ollama')"
+                                                    class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-bold border border-white/5 transition-all">Ollama</button>
+                                                <button @click="setLLMPreset('lm_studio')"
+                                                    class="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-bold border border-white/5 transition-all">LM
+                                                    Studio</button>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1 ml-4">
+                                            <label
+                                                class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Model</label>
+                                            <input type="text" x-model="config.classification.model"
+                                                class="input-glass py-2 px-3" placeholder="gpt-4o-mini">
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div x-show="config.classification.enabled">
-                                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">
-                                        LLM API Key
-                                        <span x-show="config.classification.provider !== 'openai'"
-                                            class="text-[8px] opacity-60">(Optional)</span>
-                                    </label>
+                                    <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">LLM API
+                                        Key</label>
                                     <input type="password" x-model="config.classification.api_key" class="input-glass"
-                                        :placeholder="config.classification.provider === 'openai' ? 'sk-...' : 'Not needed for most local providers'">
+                                        placeholder="sk-... (Optional for local LLMs)">
                                 </div>
 
-                                <div
-                                    x-show="config.classification.enabled && config.classification.provider !== 'openai'">
+                                <div x-show="config.classification.enabled">
                                     <label class="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Base
                                         URL</label>
                                     <input type="text" x-model="config.classification.base_url" class="input-glass"
-                                        placeholder="http://localhost:11434/v1">
+                                        placeholder="Leave empty for OpenAI default">
                                 </div>
                             </div>
 
@@ -858,6 +859,18 @@
                 isAuthenticating: false,
                 gmailSecretJson: '',
                 m365SecretJson: '',
+                setLLMPreset(preset) {
+                    if (preset === 'openai') {
+                        this.config.classification.base_url = '';
+                        this.config.classification.model = 'gpt-4o-mini';
+                    } else if (preset === 'ollama') {
+                        this.config.classification.base_url = 'http://localhost:11434/v1';
+                        this.config.classification.model = 'llama3';
+                    } else if (preset === 'lm_studio') {
+                        this.config.classification.base_url = 'http://localhost:1234/v1';
+                        this.config.classification.model = 'model-identifier';
+                    }
+                },
                 init() {
                     this.fetchVersion();
                     this.resetAndFetch();

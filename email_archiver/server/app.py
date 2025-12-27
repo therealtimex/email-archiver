@@ -209,7 +209,7 @@ async def get_stats():
 async def get_emails(limit: int = 50, skip: int = 0, search: Optional[str] = None):
     return db.get_emails(limit=limit, offset=skip, search_query=search)
 
-async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, rename: bool = False, embed: bool = False, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None):
+async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, rename: bool = False, embed: bool = False, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None, llm_base_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: Optional[str] = None):
     global sync_status
     sync_status["is_running"] = True
     sync_status["is_cancelled"] = False # Reset cancellation state
@@ -224,7 +224,7 @@ async def run_sync_task(provider: str, incremental: bool, classify: bool, extrac
         logging.info(f"Initiating sync for provider: {provider}")
         from email_archiver.main import run_archiver_logic
         
-        await asyncio.to_thread(run_archiver_logic, provider, incremental, classify, extract, since, after_id, query, rename, embed)
+        await asyncio.to_thread(run_archiver_logic, provider, incremental, classify, extract, since, after_id, query, rename, embed, llm_api_key, llm_model, llm_base_url)
         
         logging.info("Synchronization completed successfully.")
         sync_status["last_run"] = datetime.now().isoformat()
@@ -250,7 +250,10 @@ async def trigger_sync(request: SyncRequest, background_tasks: BackgroundTasks):
         request.embed,
         request.since,
         request.after_id,
-        request.query
+        request.query,
+        request.llm_base_url,
+        request.llm_api_key,
+        request.llm_model
     )
     return {"message": "Sync started"}
 

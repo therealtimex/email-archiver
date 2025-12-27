@@ -89,7 +89,6 @@ def main():
     parser.add_argument('--openai-api-key', help='OpenAI API key (Legacy, use --llm-api-key)')
     parser.add_argument('--llm-api-key', help='API key for the LLM provider')
     parser.add_argument('--llm-model', help='Model name to use (e.g., gpt-4o-mini, llama3)')
-    parser.add_argument('--llm-provider', choices=['openai', 'ollama', 'lm_studio', 'local'], default='openai', help='LLM provider (default: openai)')
     parser.add_argument('--llm-base-url', help='Base URL for the LLM API')
     parser.add_argument('--skip-promotional', action='store_true', help='Skip promotional emails (requires --classify)')
     parser.add_argument('--extract', action='store_true', help='Enable advanced metadata extraction (v0.5.0+)')
@@ -125,7 +124,6 @@ def main():
             openai_api_key=args.openai_api_key,
             skip_promotional=args.skip_promotional,
             metadata_output=args.metadata_output,
-            llm_provider=args.llm_provider,
             llm_base_url=args.llm_base_url,
             llm_api_key=args.llm_api_key,
             llm_model=args.llm_model,
@@ -194,7 +192,6 @@ def run_archiver_logic_internal(
     openai_api_key=None,
     skip_promotional=False,
     metadata_output=None,
-    llm_provider=None,
     llm_base_url=None,
     llm_api_key=None,
     llm_model=None,
@@ -263,9 +260,6 @@ def run_archiver_logic_internal(
     if metadata_output:
         classification_config['metadata_file'] = metadata_output
     
-    if llm_provider:
-        classification_config['provider'] = llm_provider
-        
     if llm_base_url:
         classification_config['base_url'] = llm_base_url
     
