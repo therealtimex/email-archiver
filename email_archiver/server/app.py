@@ -75,6 +75,9 @@ class SyncRequest(BaseModel):
     since: Optional[str] = None
     after_id: Optional[str] = None
     query: Optional[str] = None
+    llm_base_url: Optional[str] = None
+    llm_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
 
 class AuthRequest(BaseModel):
     provider: str

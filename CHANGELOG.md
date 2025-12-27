@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.9] - 2025-12-26
+
+### Fixed
+- **Sync Hotfix**: Fixed an `AttributeError` in the Web Dashboard sync task caused by missing LLM fields in the `SyncRequest` model.
+- **Frontend Sync**: Ensured the dashboard correctly transmits LLM configuration (Base URL, API Key, Model) when triggering a sync.
+
 ## [0.8.8] - 2025-12-26
 
 ### Changed

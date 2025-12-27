@@ -1044,6 +1044,11 @@
                 },
                 async triggerSync() {
                     try {
+                        // Sync current LLM settings to request
+                        this.syncConfig.llm_base_url = this.config.classification.base_url;
+                        this.syncConfig.llm_api_key = this.config.classification.api_key;
+                        this.syncConfig.llm_model = this.config.classification.model;
+
                         await fetch('/api/sync', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
