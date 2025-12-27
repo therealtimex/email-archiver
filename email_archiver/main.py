@@ -141,7 +141,7 @@ def main():
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
-def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False, llm_api_key=None, llm_model=None, llm_base_url=None):
+def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False, llm_api_key=None, llm_model=None, llm_base_url=None, local_only=False):
     """Entry point for UI to run sync."""
     config = load_config(CONFIG_PATH)
     
@@ -178,7 +178,8 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
         llm_api_key=llm_api_key,
         llm_model=llm_model,
         llm_base_url=llm_base_url,
-        check_cancellation=check_ui_cancellation
+        check_cancellation=check_ui_cancellation,
+        local_only=local_only
     )
 
 def run_archiver_logic_internal(
