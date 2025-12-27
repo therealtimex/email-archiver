@@ -277,226 +277,272 @@ def run_archiver_logic_internal(
     # Initialize extractor
     extractor = EmailExtractor(config)
     
-    # Open metadata file
+    # Open metadata file with try-finally to ensure proper cleanup
     metadata_file_handle = None
-    if classifier.enabled or extractor.enabled:
-        metadata_path = classification_config.get('metadata_file', 'email_metadata.jsonl')
-        metadata_file_handle = open(metadata_path, 'a', encoding='utf-8')
-        logging.info(f"Metadata will be saved to: {metadata_path}")
 
-    handler = None
-    if provider == 'gmail':
-        handler = GmailHandler(config)
-    elif provider == 'm365':
-        handler = GraphHandler(config)
-        
-    logging.info(f"Initialized {provider} handler.")
+    try:
+        if classifier.enabled or extractor.enabled:
+            metadata_path = classification_config.get('metadata_file', 'email_metadata.jsonl')
+            metadata_file_handle = open(metadata_path, 'a', encoding='utf-8')
+            logging.info(f"Metadata will be saved to: {metadata_path}")
 
-    
-    # ---------------------------
-    # Local File Mapping (for efficiency)
-    # ---------------------------
-    local_file_map = {} # short_id -> full_path
-    for f in os.listdir(target_download_dir):
-        if f.endswith('.eml'):
-            # Filename format: ..._[ID].eml
-            parts = f.split('_')
-            if len(parts) >= 1:
-                short_id = parts[-1].replace('.eml', '')
-                local_file_map[short_id] = os.path.join(target_download_dir, f)
-    
-    if local_only:
-        logging.info("Local-only mode: Building processing list from disk...")
-        ids_to_fetch = []
-        for short_id, path in local_file_map.items():
-            # We don't have the full ID, but we can use the short one as a placeholder
-            # if it's not in the DB.
-            ids_to_fetch.append({'id': short_id, 'local_path': path})
-    else:
-        # ---------------------------
-        # Query Construction Logic
-        # ---------------------------
-        ids_to_fetch = []
-        
+        handler = None
         if provider == 'gmail':
-            query_parts = []
-            if query:
-                query_parts.append(query)
-                
-            if since:
-                # Gmail uses YYYY/MM/DD
-                date_str = since.replace('-', '/')
-                query_parts.append(f"after:{date_str}")
-                
-            if incremental:
-                # Checkpoint for Gmail: 'last_internal_date' (milliseconds)
-                last_ts = db.get_checkpoint('gmail')
-                if not last_ts:
-                     # Fallback to legay if needed (migration should have handled it)
-                     last_ts = checkpoint.get('gmail', {}).get('last_internal_date', 0)
-                
-                if last_ts:
-                    # internalDate is ms, divide by 1000
-                    ts_seconds = int(int(last_ts) / 1000)
-                    query_parts.append(f"after:{ts_seconds}")
-            
-            # 'after-id' logic for Gmail is tricky without specific API calls to get that ID's date first.
-            # Implemented simply by warning or assuming user might provide custom query.
-            if after_id:
-                logging.warning("--after-id not fully implemented for Gmail automatic date resolution. Use --query for precise control.")
-            
-            final_query = " ".join(query_parts)
-            logging.info(f"Gmail Query: {final_query}")
-            
-            # Fetch IDs (returns dicts with 'id', 'threadId')
-            messages = handler.fetch_ids(final_query)
-            ids_to_fetch = messages
-
+            handler = GmailHandler(config)
         elif provider == 'm365':
-            filter_parts = []
-            # Since
-            if since:
-                filter_parts.append(f"receivedDateTime ge {since}T00:00:00Z")
-                
-            # Incremental
-            if incremental:
-                last_time = db.get_checkpoint('m365')
-                if not last_time:
-                    last_time = checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
-                filter_parts.append(f"receivedDateTime gt {last_time}")
-                
-            # After-ID (Resolve ID to time first would be ideal, but for now just support custom query or since)
-            if after_id: 
-                # Implementation for resolving ID would go here, skipping for MVP/Simplicity unless requested
-                 logging.warning("--after-id logic requires extra roundtrip, skipping specific resolution for now.")
+            handler = GraphHandler(config)
 
-            final_filter = " and ".join(filter_parts) if filter_parts else None
-            
-            logging.info(f"M365 Filter: {final_filter}")
-            logging.info(f"M365 Search: {query}")
-            
-            # Fetch IDs (returns dicts with 'id', 'receivedDateTime')
-            messages = handler.fetch_ids(filter_str=final_filter, search_str=query)
-            ids_to_fetch = messages
-        
-    logging.info(f"Starting download for {len(ids_to_fetch)} messages...")
-    
-    # ---------------------------
-    # Download Loop
-    # ---------------------------
-    success_count = 0
-    max_checkpoint_val = 0 # Track strict ordering if possible, or just max seen
-    
-    # For checkpoint updates
-    current_gmail_checkpoint = db.get_checkpoint('gmail') or checkpoint.get('gmail', {}).get('last_internal_date', 0)
-    current_m365_checkpoint = db.get_checkpoint('m365') or checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
+        logging.info(f"Initialized {provider} handler.")
 
-    for i, msg in enumerate(tqdm(ids_to_fetch)):
-        # Check for cancellation
-        if check_cancellation and check_cancellation():
-            logging.info("Sync cancelled by user. Stopping loop...")
-            break
-            
-        msg_id = msg['id']
 
-        file_content = None
-        metadata = {} # Initialize as dict to avoid NoneType errors
-        
-        # EFFICIENCY: Check if we have it on disk already
-        local_path = msg.get('local_path')
-        if not local_path:
-            short_id = msg_id[-8:] if len(msg_id) > 8 else msg_id
-            if short_id in local_file_map:
-                local_path = local_file_map[short_id]
-        
-        if local_path:
-            logging.info(f"Using local file for {msg_id}: {os.path.basename(local_path)}")
-            try:
-                with open(local_path, 'rb') as f:
-                    file_content = f.read()
-                # We still need to determine the 'provider internal date' for checkpointing
-                # If it's M365, we might have it in the msg dict from fetch_ids
-                if provider == 'm365':
-                    metadata = msg
-                # If Gmail, we'll try to parse it from the EML or just use the file date as fallback
-            except Exception as e:
-                logging.error(f"Failed to read local file {local_path}: {e}")
+        # ---------------------------
+        # Local File Mapping (for efficiency)
+        # ---------------------------
+        local_file_map = {} # short_id -> full_path
+        for f in os.listdir(target_download_dir):
+            if f.endswith('.eml'):
+                # Filename format: ..._[ID].eml
+                parts = f.split('_')
+                if len(parts) >= 1:
+                    short_id = parts[-1].replace('.eml', '')
+                    local_file_map[short_id] = os.path.join(target_download_dir, f)
 
-        if not file_content:
-            if local_only:
-                continue # Skip if not on disk and in local-only mode
-                
+        if local_only:
+            logging.info("Local-only mode: Building processing list from disk...")
+            ids_to_fetch = []
+            for short_id, path in local_file_map.items():
+                # We don't have the full ID, but we can use the short one as a placeholder
+                # if it's not in the DB.
+                ids_to_fetch.append({'id': short_id, 'local_path': path})
+        else:
+            # ---------------------------
+            # Query Construction Logic
+            # ---------------------------
+            ids_to_fetch = []
+
             if provider == 'gmail':
-                file_content, internal_date = handler.download_message(msg_id)
-                metadata = {'internalDate': internal_date}
-            elif provider == 'm365':
-                file_content = handler.download_message(msg_id)
-                metadata = msg
-        
-        if file_content:
-            from email import message_from_bytes
-            email_obj = message_from_bytes(file_content)
-            subject = email_obj.get('subject', 'No Subject')
-            sender = email_obj.get('from', 'Unknown')
-            recipients_to = email_obj.get('to', '')
-            recipients_cc = email_obj.get('cc', '')
-            recipients_bcc = email_obj.get('bcc', '')
-            
-            classification = None
-            should_skip = False
-            
-            if classifier.enabled:
-                classification = classifier.classify_email(email_obj, subject, sender, recipients_to, recipients_cc)
-                if classification:
-                    should_skip = classifier.should_skip(classification)
-                    if should_skip:
-                        logging.info(f"Skipping email '{subject[:50]}...' (category: {classification.get('category')})")
-                        continue
-            
-            extraction = None
-            if extractor.enabled:
-                extraction = extractor.extract_metadata(email_obj, subject, sender)
-            
-            timestamp = datetime.now()
-            
-            if provider == 'm365' and metadata.get('receivedDateTime'):
-                timestamp = metadata['receivedDateTime']
-                if timestamp > current_m365_checkpoint:
-                    current_m365_checkpoint = timestamp
+                query_parts = []
+                if query:
+                    query_parts.append(query)
                     
-            elif provider == 'gmail' and metadata.get('internalDate'):
-                ts_ms = int(metadata['internalDate'])
-                timestamp = datetime.fromtimestamp(ts_ms / 1000.0)
-                if ts_ms > int(current_gmail_checkpoint):
-                    current_gmail_checkpoint = ts_ms
+                if since:
+                    # Gmail uses YYYY/MM/DD
+                    date_str = since.replace('-', '/')
+                    query_parts.append(f"after:{date_str}")
+                    
+                if incremental:
+                    # Checkpoint for Gmail: 'last_internal_date' (milliseconds)
+                    last_ts = db.get_checkpoint('gmail')
+                    if not last_ts:
+                         # Fallback to legay if needed (migration should have handled it)
+                         last_ts = checkpoint.get('gmail', {}).get('last_internal_date', 0)
+                    
+                    if last_ts:
+                        # internalDate is ms, divide by 1000
+                        ts_seconds = int(int(last_ts) / 1000)
+                        query_parts.append(f"after:{ts_seconds}")
+                
+                # 'after-id' logic for Gmail is tricky without specific API calls to get that ID's date first.
+                # Implemented simply by warning or assuming user might provide custom query.
+                if after_id:
+                    logging.warning("--after-id not fully implemented for Gmail automatic date resolution. Use --query for precise control.")
+                
+                final_query = " ".join(query_parts)
+                logging.info(f"Gmail Query: {final_query}")
+                
+                # Fetch IDs (returns dicts with 'id', 'threadId')
+                messages = handler.fetch_ids(final_query)
+                ids_to_fetch = messages
+    
+            elif provider == 'm365':
+                filter_parts = []
+                # Since
+                if since:
+                    filter_parts.append(f"receivedDateTime ge {since}T00:00:00Z")
+                    
+                # Incremental
+                if incremental:
+                    last_time = db.get_checkpoint('m365')
+                    if not last_time:
+                        last_time = checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
+                    filter_parts.append(f"receivedDateTime gt {last_time}")
+                    
+                # After-ID (Resolve ID to time first would be ideal, but for now just support custom query or since)
+                if after_id: 
+                    # Implementation for resolving ID would go here, skipping for MVP/Simplicity unless requested
+                     logging.warning("--after-id logic requires extra roundtrip, skipping specific resolution for now.")
+    
+                final_filter = " and ".join(filter_parts) if filter_parts else None
+                
+                logging.info(f"M365 Filter: {final_filter}")
+                logging.info(f"M365 Search: {query}")
+                
+                # Fetch IDs (returns dicts with 'id', 'receivedDateTime')
+                messages = handler.fetch_ids(filter_str=final_filter, search_str=query)
+                ids_to_fetch = messages
             
-            # Fallback for local indexing where metadata might be empty
-            if timestamp == datetime.now() and email_obj.get('date'):
-                from email.utils import parsedate_to_datetime
+        logging.info(f"Starting download for {len(ids_to_fetch)} messages...")
+        
+        # ---------------------------
+        # Download Loop
+        # ---------------------------
+        success_count = 0
+        max_checkpoint_val = 0 # Track strict ordering if possible, or just max seen
+        
+        # For checkpoint updates
+        current_gmail_checkpoint = db.get_checkpoint('gmail') or checkpoint.get('gmail', {}).get('last_internal_date', 0)
+        current_m365_checkpoint = db.get_checkpoint('m365') or checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
+    
+        for i, msg in enumerate(tqdm(ids_to_fetch)):
+            # Check for cancellation
+            if check_cancellation and check_cancellation():
+                logging.info("Sync cancelled by user. Stopping loop...")
+                break
+                
+            msg_id = msg['id']
+    
+            file_content = None
+            metadata = {} # Initialize as dict to avoid NoneType errors
+            
+            # EFFICIENCY: Check if we have it on disk already
+            local_path = msg.get('local_path')
+            if not local_path:
+                short_id = msg_id[-8:] if len(msg_id) > 8 else msg_id
+                if short_id in local_file_map:
+                    local_path = local_file_map[short_id]
+            
+            if local_path:
+                logging.info(f"Using local file for {msg_id}: {os.path.basename(local_path)}")
                 try:
-                    timestamp = parsedate_to_datetime(email_obj.get('date'))
-                except:
-                    pass
+                    with open(local_path, 'rb') as f:
+                        file_content = f.read()
+                    # We still need to determine the 'provider internal date' for checkpointing
+                    # If it's M365, we might have it in the msg dict from fetch_ids
+                    if provider == 'm365':
+                        metadata = msg
+                    # If Gmail, we'll try to parse it from the EML or just use the file date as fallback
+                except Exception as e:
+                    logging.error(f"Failed to read local file {local_path}: {e}")
+    
+            if not file_content:
+                if local_only:
+                    continue # Skip if not on disk and in local-only mode
+                    
+                if provider == 'gmail':
+                    file_content, internal_date = handler.download_message(msg_id)
+                    metadata = {'internalDate': internal_date}
+                elif provider == 'm365':
+                    file_content = handler.download_message(msg_id)
+                    metadata = msg
             
-            if embed and (classification or extraction):
-                logging.info(f"Embedding AI metadata into headers for {msg['id']}")
-                email_obj = embed_metadata_in_message(email_obj, metadata, classification, extraction)
-                file_content = email_obj.as_bytes()
-            
-            if local_only and local_path:
-                file_path = local_path
-            else:
-                filename = generate_filename(subject, timestamp, internal_id=msg['id'], use_slug=rename)
-                file_path = os.path.join(target_download_dir, filename)
-            
-            # Check if we should skip writing based on presence AND lack of AI request
-            if os.path.exists(file_path) and not (classifier.enabled or extractor.enabled or embed):
-                logging.info(f"Skipping {filename}, already exists and no re-analysis requested.")
-                # Auto-Index: If record exists but path changed, update it.
-                # If record doesn't exist, create it.
-                if db.get_email(msg['id']):
-                    db.update_email_path(msg['id'], file_path)
+            if file_content:
+                from email import message_from_bytes
+                email_obj = message_from_bytes(file_content)
+                subject = email_obj.get('subject', 'No Subject')
+                sender = email_obj.get('from', 'Unknown')
+                recipients_to = email_obj.get('to', '')
+                recipients_cc = email_obj.get('cc', '')
+                recipients_bcc = email_obj.get('bcc', '')
+                
+                classification = None
+                should_skip = False
+                
+                if classifier.enabled:
+                    classification = classifier.classify_email(email_obj, subject, sender, recipients_to, recipients_cc)
+                    if classification:
+                        should_skip = classifier.should_skip(classification)
+                        if should_skip:
+                            logging.info(f"Skipping email '{subject[:50]}...' (category: {classification.get('category')})")
+                            continue
+                
+                extraction = None
+                if extractor.enabled:
+                    extraction = extractor.extract_metadata(email_obj, subject, sender)
+                
+                timestamp = datetime.now()
+                
+                if provider == 'm365' and metadata.get('receivedDateTime'):
+                    timestamp = metadata['receivedDateTime']
+                    if timestamp > current_m365_checkpoint:
+                        current_m365_checkpoint = timestamp
+                        
+                elif provider == 'gmail' and metadata.get('internalDate'):
+                    ts_ms = int(metadata['internalDate'])
+                    timestamp = datetime.fromtimestamp(ts_ms / 1000.0)
+                    if ts_ms > int(current_gmail_checkpoint):
+                        current_gmail_checkpoint = ts_ms
+                
+                # Fallback for local indexing where metadata might be empty
+                if timestamp == datetime.now() and email_obj.get('date'):
+                    from email.utils import parsedate_to_datetime
+                    try:
+                        timestamp = parsedate_to_datetime(email_obj.get('date'))
+                    except:
+                        pass
+                
+                if embed and (classification or extraction):
+                    logging.info(f"Embedding AI metadata into headers for {msg['id']}")
+                    email_obj = embed_metadata_in_message(email_obj, metadata, classification, extraction)
+                    file_content = email_obj.as_bytes()
+                
+                if local_only and local_path:
+                    file_path = local_path
                 else:
+                    filename = generate_filename(subject, timestamp, internal_id=msg['id'], use_slug=rename)
+                    file_path = os.path.join(target_download_dir, filename)
+                
+                # Check if we should skip writing based on presence AND lack of AI request
+                if os.path.exists(file_path) and not (classifier.enabled or extractor.enabled or embed):
+                    logging.info(f"Skipping {filename}, already exists and no re-analysis requested.")
+                    # Auto-Index: If record exists but path changed, update it.
+                    # If record doesn't exist, create it.
+                    if db.get_email(msg['id']):
+                        db.update_email_path(msg['id'], file_path)
+                    else:
+                        db.record_email(
+                            message_id=msg['id'],
+                            provider=provider,
+                            subject=subject,
+                            sender=sender,
+                            recipients=f"{recipients_to}, {recipients_cc}".strip(", "),
+                            received_at=timestamp,
+                            file_path=file_path,
+                            classification=classification,
+                            extraction=extraction
+                        )
+                else:
+                    with open(file_path, 'wb') as f:
+                        f.write(file_content)
+                    success_count += 1
+                    
+                    if (classifier.enabled or extractor.enabled) and metadata_file_handle:
+                        metadata_entry = {
+                            "message_id": msg['id'],
+                            "subject": subject,
+                            "from": sender,
+                            "to": recipients_to,
+                            "cc": recipients_cc,
+                            "bcc": recipients_bcc,
+                            "date": timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp,
+                            "classification": classification,
+                            "extraction": extraction,
+                            "file_path": file_path
+                        }
+                        try:
+                            metadata_file_handle.write(json.dumps(metadata_entry) + '\n')
+                            metadata_file_handle.flush()
+                        except Exception as e:
+                            logging.error(f"Failed to write metadata: {e}")
+                    
+                    webhook_config = config.get('webhook', {})
+                    if webhook_config.get('enabled'):
+                        send_to_webhook(
+                            file_path, 
+                            webhook_config.get('url'), 
+                            headers=webhook_config.get('headers')
+                        )
+                    
+                    # Record in Database
                     db.record_email(
                         message_id=msg['id'],
                         provider=provider,
@@ -508,61 +554,29 @@ def run_archiver_logic_internal(
                         classification=classification,
                         extraction=extraction
                     )
-            else:
-                with open(file_path, 'wb') as f:
-                    f.write(file_content)
-                success_count += 1
-                
-                if (classifier.enabled or extractor.enabled) and metadata_file_handle:
-                    metadata_entry = {
-                        "message_id": msg['id'],
-                        "subject": subject,
-                        "from": sender,
-                        "to": recipients_to,
-                        "cc": recipients_cc,
-                        "bcc": recipients_bcc,
-                        "date": timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp,
-                        "classification": classification,
-                        "extraction": extraction,
-                        "file_path": file_path
-                    }
-                    metadata_file_handle.write(json.dumps(metadata_entry) + '\n')
-                    metadata_file_handle.flush()
-                
-                webhook_config = config.get('webhook', {})
-                if webhook_config.get('enabled'):
-                    send_to_webhook(
-                        file_path, 
-                        webhook_config.get('url'), 
-                        headers=webhook_config.get('headers')
-                    )
-                
-                # Record in Database
-                db.record_email(
-                    message_id=msg['id'],
-                    provider=provider,
-                    subject=subject,
-                    sender=sender,
-                    recipients=f"{recipients_to}, {recipients_cc}".strip(", "),
-                    received_at=timestamp,
-                    file_path=file_path,
-                    classification=classification,
-                    extraction=extraction
-                )
-                
-            if success_count % 10 == 0 and success_count > 0:
-                if provider == 'm365':
-                    db.save_checkpoint('m365', current_m365_checkpoint)
-                elif provider == 'gmail':
-                    db.save_checkpoint('gmail', current_gmail_checkpoint)
-        
-    if metadata_file_handle:
-        metadata_file_handle.close()
-    
-    if provider == 'm365':
-        db.save_checkpoint('m365', current_m365_checkpoint)
-    elif provider == 'gmail':
-        db.save_checkpoint('gmail', current_gmail_checkpoint)
+                    
+                if success_count % 10 == 0 and success_count > 0:
+                    if provider == 'm365':
+                        db.save_checkpoint('m365', current_m365_checkpoint)
+                    elif provider == 'gmail':
+                        db.save_checkpoint('gmail', current_gmail_checkpoint)
+
+
+    finally:
+        # ALWAYS close file handle, even if there's an exception
+        if metadata_file_handle:
+            try:
+                metadata_file_handle.flush()  # Ensure data is written
+                metadata_file_handle.close()
+                logging.debug("Metadata file closed successfully")
+            except Exception as e:
+                logging.error(f"Error closing metadata file: {e}")
+
+        # Save final checkpoints
+        if provider == 'm365':
+            db.save_checkpoint('m365', current_m365_checkpoint)
+        elif provider == 'gmail':
+            db.save_checkpoint('gmail', current_gmail_checkpoint)
         
     logging.info(f"Sync complete. Processed {len(ids_to_fetch)} messages. New files: {success_count}. Updated: {len(ids_to_fetch) - success_count if local_only else 'N/A'}")
 

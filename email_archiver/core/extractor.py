@@ -41,7 +41,7 @@ class EmailExtractor:
             return
             
         self.model = self.config.get('model') or llm_config.get('model') or std_config.get('model', 'gpt-4o-mini')
-        self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url)
+        self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url, timeout=60.0)
         
         logging.info(f"Advanced extraction enabled with model: {self.model} (Endpoint: {self.base_url or 'OpenAI'})")
     

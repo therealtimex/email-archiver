@@ -47,7 +47,7 @@ class EmailClassifier:
             return
             
         self.model = self.config.get('model') or std_config.get('model', 'gpt-4o-mini')
-        self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url)
+        self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url, timeout=60.0)
         
         self.categories = self.config.get('categories', self.DEFAULT_CATEGORIES)
         self.skip_categories = self.config.get('skip_categories', [])

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2025-12-26
+
+### 🚀 Major Release
+- **First Stable Desktop Release**: This release marks the official v1.0 milestone for local desktop usage, featuring critical security hardening and stability improvements.
+
+### 🔒 Security
+- **CORS Restriction**: Restricted API access to `localhost` and `127.0.0.1` to prevent unauthorized access from external websites.
+- **Webhook Validation**: Implemented strict validation for webhook URLs to block private/internal IP addresses (SSRF prevention).
+- **Path Validation**: Added strict validation for all file paths to prevent arbitrary file system access outside allowed directories (e.g., User Home).
+
+### 🛠 Stability
+- **API Timeouts**: Added explicit timeouts to all external API calls (Microsoft Graph, OpenAI) to prevent the application from hanging.
+- **Robust File Handling**: Implemented try-finally blocks for metadata file operations to ensure file handles are properly closed and to prevent data corruption.
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

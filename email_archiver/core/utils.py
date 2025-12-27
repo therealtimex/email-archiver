@@ -6,6 +6,10 @@ import json
 import base64
 from datetime import datetime
 from email.utils import formatdate
+import requests
+import ipaddress
+import socket
+from urllib.parse import urlparse
 
 def setup_logging(log_file=None):
     """
@@ -167,17 +171,74 @@ def embed_metadata_in_message(email_obj, metadata, classification=None, extracti
     
     return email_obj
 
+def validate_webhook_url(url: str) -> bool:
+    """Prevents SSRF by blocking private/internal IPs"""
+    try:
+        parsed = urlparse(url)
+
+        # Must be HTTP(S)
+        if parsed.scheme not in ['http', 'https']:
+            logging.error(f"Invalid webhook scheme: {parsed.scheme}")
+            return False
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Resolve to IP and check if private
+        try:
+            ip = socket.gethostbyname(hostname)
+            ip_obj = ipaddress.ip_address(ip)
+
+            # Block private/loopback/link-local addresses
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+                logging.error(f"⚠️ Webhook URL resolves to private IP: {ip}")
+                logging.error(f"   This could attack your internal network!")
+                logging.error(f"   Blocked for your safety: {url}")
+                return False
+
+        except socket.gaierror:
+            logging.error(f"Could not resolve webhook hostname: {hostname}")
+            return False
+
+        return True
+
+    except Exception as e:
+        logging.error(f"Webhook URL validation failed: {e}")
+        return False
+
 def send_to_webhook(file_path, url, headers=None):
     """
-    Sends the file to the specified webhook URL.
+    Sends the file to the specified webhook URL with security checks.
     """
-    import requests # Import here to avoid circular dependencies if any, or just convenience
-    
+    # Validate URL first
+    if not validate_webhook_url(url):
+        logging.error(f"❌ Refusing to send to unsafe webhook URL")
+        return False
+
     try:
         with open(file_path, 'rb') as f:
             files = {'file': (os.path.basename(file_path), f, 'message/rfc822')}
-            response = requests.post(url, files=files, headers=headers)
+            response = requests.post(
+                url,
+                files=files,
+                headers=headers,
+                timeout=30,  # Prevent hanging
+                allow_redirects=False  # Prevent redirect-based attacks
+            )
             response.raise_for_status()
-        logging.info(f"Successfully sent {os.path.basename(file_path)} to webhook.")
+
+        logging.info(f"✅ Successfully sent {os.path.basename(file_path)} to webhook.")
+        return True
+
+    except requests.Timeout:
+        logging.error(f"⏱️ Webhook request timed out (>30s): {url}")
+        return False
+
+    except requests.RequestException as e:
+        logging.error(f"❌ Failed to send to webhook: {e}")
+        return False
+
     except Exception as e:
-        logging.error(f"Failed to send {file_path} to webhook: {e}")
+        logging.error(f"❌ Unexpected error sending to webhook: {e}")
+        return False

@@ -136,7 +136,7 @@ class GraphHandler:
         messages = []
         while endpoint:
             try:
-                response = requests.get(endpoint, headers=headers)
+                response = requests.get(endpoint, headers=headers, timeout=30)
                 if response.status_code == 200:
                     data = response.json()
                     messages.extend(data.get('value', []))
@@ -169,7 +169,7 @@ class GraphHandler:
         endpoint = f"https://graph.microsoft.com/v1.0/me/messages/{message_id}/$value"
         
         try:
-            response = requests.get(endpoint, headers=headers)
+            response = requests.get(endpoint, headers=headers, timeout=30)
             if response.status_code == 200:
                 return response.content
             else:
