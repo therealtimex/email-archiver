@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.7] - 2025-12-26
+
+### Added
+- **Dashboard Feature Parity**: Added full UI support for `--rename` (intelligent file renaming) and `--embed` (AI metadata embedding) features.
+- **Enhanced Sync Engine**: Dashboard now allows granular control over advanced archiving features through a modernized toggle interface.
+
 ## [0.8.6] - 2025-12-26
 
 ### Changed

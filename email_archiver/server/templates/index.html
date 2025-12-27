@@ -285,6 +285,18 @@
                                         <span class="text-[11px] font-semibold text-slate-300">Deep Extract</span>
                                     </label>
                                 </div>
+                                <div class="flex gap-4">
+                                    <label
+                                        class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
+                                        <input type="checkbox" x-model="syncConfig.rename" class="accent-amber-500">
+                                        <span class="text-[11px] font-semibold text-slate-300">Rename Files</span>
+                                    </label>
+                                    <label
+                                        class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
+                                        <input type="checkbox" x-model="syncConfig.embed" class="accent-emerald-500">
+                                        <span class="text-[11px] font-semibold text-slate-300">Embed Metadata</span>
+                                    </label>
+                                </div>
 
                                 <!-- Advanced Filters -->
                                 <div x-data="{ open: false }" class="border-t border-white/5 pt-4">
@@ -826,6 +838,8 @@
                     incremental: true,
                     classify: true,
                     extract: false,
+                    rename: true,
+                    embed: true,
                     since: new Date().toISOString().split('T')[0],
                     after_id: '',
                     query: ''
