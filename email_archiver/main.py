@@ -178,13 +178,23 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
     """Entry point for UI to run sync."""
     config = load_config(CONFIG_PATH)
     
-    # Basic check - if it's a default config without secrets, we can't sync yet
-    if provider == 'gmail' and not os.path.exists(config.get('gmail', {}).get('client_secrets_file', '')):
-        logging.error(f"Gmail sync requires credentials. Please configure 'auth/credentials.json' or use the UI setup.")
-        return
-    if provider == 'm365' and not os.path.exists(config.get('m365', {}).get('client_config_file', '')):
-        logging.error(f"M365 sync requires credentials. Please configure 'auth/config.json' or use the UI setup.")
-        return
+    # Basic check - ensure we have either secrets to authenticate OR an existing token
+    from email_archiver.core.paths import get_auth_dir
+    auth_dir = get_auth_dir()
+    
+    if provider == 'gmail':
+        has_secrets = os.path.exists(config.get('gmail', {}).get('client_secrets_file', ''))
+        has_token = os.path.exists(auth_dir / 'gmail_token.json')
+        if not (has_secrets or has_token):
+             logging.error(f"Gmail sync requires credentials. Please configure 'auth/credentials.json' or use the UI setup.")
+             return
+
+    if provider == 'm365':
+        has_config = os.path.exists(config.get('m365', {}).get('client_config_file', ''))
+        has_token = os.path.exists(auth_dir / 'm365_token.json')
+        if not (has_config or has_token):
+            logging.error(f"M365 sync requires credentials. Please configure 'auth/config.json' or use the UI setup.")
+            return
 
     checkpoint = load_checkpoint(CHECKPOINT_PATH)
     
