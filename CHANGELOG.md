@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.16] - 2025-12-26
+
+### Fixed
+- **Local Re-analysis**: Resolved an issue where local archives were skipped during re-analysis. The sync process now correctly performs full AI classification and extraction on local `.eml` files and updates the database records on conflict.
+
 ## [0.8.15] - 2025-12-26
 
 ### Fixed

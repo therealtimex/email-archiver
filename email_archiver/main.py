@@ -292,45 +292,6 @@ def run_archiver_logic_internal(
         
     logging.info(f"Initialized {provider} handler.")
 
-    if local_only:
-        logging.info("Running in local-only mode. Scanning downloads directory...")
-        import glob
-        from email import message_from_binary_file
-        
-        eml_files = glob.glob(os.path.join(target_download_dir, "*.eml"))
-        logging.info(f"Found {len(eml_files)} .eml files. Indexing...")
-        
-        indexed_count = 0
-        for eml_path in tqdm(eml_files):
-            try:
-                # Extract ID from filename if possible, or parse file
-                # Standard filename: YYYYMMDD_HHMM_[Subject]_[ID].eml
-                filename = os.path.basename(eml_path)
-                parts = filename.split('_')
-                if len(parts) >= 3:
-                     # Attempt to get ID from last part (removing .eml)
-                     file_id = parts[-1].replace('.eml', '')
-                     if db.email_exists(file_id):
-                         continue
-                
-                # If ID not easily found or not in DB, parse file
-                with open(eml_path, 'rb') as f:
-                    msg_obj = message_from_binary_file(f)
-                    # We might need the actual provider ID which isn't always in EML headers 
-                    # unless we stored it in X-Headers. 
-                    # For now, if it's on disk, we assume we might have the ID in the filename.
-                    subject = msg_obj.get('subject', 'No Subject')
-                    sender = msg_obj.get('from', 'Unknown')
-                    # ... recording logic ...
-                    # This part is complex because we need the original provider ID.
-                    # Scaling back: the user wants to "skip query provider". 
-                    # If we skip the query, we don't have the list of IDs to check.
-                    # So we MUST scan the disk.
-            except Exception as e:
-                logging.error(f"Failed to index {eml_path}: {e}")
-        
-        logging.info(f"Local indexing complete. Indexed {indexed_count} files.")
-        return # Exit early in local-only mode
     
     # ---------------------------
     # Local File Mapping (for efficiency)
@@ -522,8 +483,9 @@ def run_archiver_logic_internal(
             # Note: target_download_dir was defined in the header of the function
             file_path = os.path.join(target_download_dir, filename)
             
-            if os.path.exists(file_path):
-                logging.info(f"Skipping {filename}, already exists.")
+            # Check if we should skip writing based on presence AND lack of AI request
+            if os.path.exists(file_path) and not (classifier.enabled or extractor.enabled or embed):
+                logging.info(f"Skipping {filename}, already exists and no re-analysis requested.")
                 # Auto-Index: If record exists but path changed, update it.
                 # If record doesn't exist, create it.
                 if db.get_email(msg['id']):

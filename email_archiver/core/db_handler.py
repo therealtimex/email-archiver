@@ -79,8 +79,26 @@ class DBHandler:
                 conn.commit()
                 return True
         except sqlite3.IntegrityError:
-            logging.info(f"Email {message_id} already exists. Updating its file path to {file_path}")
-            return self.update_email_path(message_id, file_path)
+            logging.info(f"Email {message_id} already exists. Updating its metadata and file path.")
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        UPDATE emails SET 
+                            subject = ?, sender = ?, recipients = ?, 
+                            received_at = ?, file_path = ?, 
+                            classification = ?, extraction = ?,
+                            processed_at = CURRENT_TIMESTAMP
+                        WHERE message_id = ?
+                    ''', (
+                        subject, sender, recipients, received_at, 
+                        file_path, class_str, ext_str, message_id
+                    ))
+                    conn.commit()
+                    return True
+            except Exception as e:
+                logging.error(f"Failed to update email {message_id} in database: {e}")
+                return False
         except Exception as e:
             logging.error(f"Failed to record email {message_id} in database: {e}")
             return False
