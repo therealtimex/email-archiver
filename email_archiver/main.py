@@ -403,10 +403,14 @@ def run_archiver_logic_internal(
         metadata = {} # Initialize as dict to avoid NoneType errors
         
         # EFFICIENCY: Check if we have it on disk already
-        short_id = msg_id[-8:] if len(msg_id) > 8 else msg_id
-        if short_id in local_file_map:
-            local_path = local_file_map[short_id]
-            logging.info(f"Found {msg_id} on disk at {os.path.basename(local_path)}. Indexing without download.")
+        local_path = msg.get('local_path')
+        if not local_path:
+            short_id = msg_id[-8:] if len(msg_id) > 8 else msg_id
+            if short_id in local_file_map:
+                local_path = local_file_map[short_id]
+        
+        if local_path:
+            logging.info(f"Using local file for {msg_id}: {os.path.basename(local_path)}")
             try:
                 with open(local_path, 'rb') as f:
                     file_content = f.read()
@@ -479,9 +483,11 @@ def run_archiver_logic_internal(
                 email_obj = embed_metadata_in_message(email_obj, metadata, classification, extraction)
                 file_content = email_obj.as_bytes()
             
-            filename = generate_filename(subject, timestamp, internal_id=msg['id'], use_slug=rename)
-            # Note: target_download_dir was defined in the header of the function
-            file_path = os.path.join(target_download_dir, filename)
+            if local_only and local_path:
+                file_path = local_path
+            else:
+                filename = generate_filename(subject, timestamp, internal_id=msg['id'], use_slug=rename)
+                file_path = os.path.join(target_download_dir, filename)
             
             # Check if we should skip writing based on presence AND lack of AI request
             if os.path.exists(file_path) and not (classifier.enabled or extractor.enabled or embed):
@@ -558,7 +564,7 @@ def run_archiver_logic_internal(
     elif provider == 'gmail':
         db.save_checkpoint('gmail', current_gmail_checkpoint)
         
-    logging.info(f"Download complete. Processed {len(ids_to_fetch)} messages, Downloaded {success_count} new files.")
+    logging.info(f"Sync complete. Processed {len(ids_to_fetch)} messages. New files: {success_count}. Updated: {len(ids_to_fetch) - success_count if local_only else 'N/A'}")
 
 if __name__ == '__main__':
     main()
