@@ -153,6 +153,18 @@ Custom base URL for the LLM API. Use this if your local LLM is running on a non-
 email-archiver --provider gmail --classify --llm-provider local --llm-base-url http://192.168.1.50:8080/v1
 ```
 
+#### `--reset`
+**FACTORY RESET**: Deletes all application data to start fresh.
+- Wipes the SQLite database (`email_archiver.sqlite`).
+- Dilutes the `downloads/` directory.
+- Clears the log file (`sync.log`).
+- **Preserves** authentication tokens in `auth/`.
+
+**Example:**
+```bash
+email-archiver --reset
+```
+
 ---
 
 ## Configuration File Reference

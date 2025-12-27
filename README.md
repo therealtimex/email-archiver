@@ -196,6 +196,7 @@ email-archiver --provider gmail --incremental
 | `--rename` | Intelligently rename .eml files to clean slugs |
 | `--embed` | Embed AI metadata directly into .eml headers |
 | `--ui` | Launch the Web Dashboard |
+| `--reset` | **Factory Reset**: Wipe all data (DB, logs, downloads) |
 
 See [API Reference](docs/API.md) for complete documentation.
 
