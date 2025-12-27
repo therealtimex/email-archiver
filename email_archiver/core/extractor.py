@@ -60,8 +60,12 @@ class EmailExtractor:
             subject = subject or email_obj.get('subject', 'No Subject')
             sender = sender or email_obj.get('from', 'Unknown')
             
-            # Truncate body for prompt
-            body_preview = body[:2000] if body else ""
+            # Use ContentCleaner
+            from email_archiver.core.content_cleaner import ContentCleaner
+            body = ContentCleaner.clean_email_body(body)
+            
+            # Truncate body for prompt (2500 chars, cleaning helps fit more real content)
+            body_preview = body[:2500] if body else ""
             
             prompt = self._create_extraction_prompt(subject, sender, body_preview)
             
@@ -69,7 +73,7 @@ class EmailExtractor:
             completion_args = {
                 "model": self.model,
                 "messages": [
-                    {"role": "system", "content": "You are an expert at extracting structured information from emails."},
+                    {"role": "system", "content": "You are a data extraction assistant."},
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.1,
@@ -97,48 +101,65 @@ class EmailExtractor:
 
     def _extract_body(self, email_obj: Message) -> str:
         body = ""
+        html_body = ""
+        
         if email_obj.is_multipart():
             for part in email_obj.walk():
-                if part.get_content_type() == "text/plain":
+                content_type = part.get_content_type()
+                if content_type == "text/plain":
                     try:
                         body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
                         break
                     except: pass
+                elif content_type == "text/html":
+                    try:
+                        html_body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                    except: pass
         else:
             try:
-                body = email_obj.get_payload(decode=True).decode('utf-8', errors='ignore')
+                payload = email_obj.get_payload(decode=True).decode('utf-8', errors='ignore')
+                if email_obj.get_content_type() == "text/html":
+                    html_body = payload
+                else:
+                    body = payload
             except: pass
-        return body.strip()
+            
+        final_body = body if body.strip() else html_body
+        return final_body.strip()
 
     def _create_extraction_prompt(self, subject: str, sender: str, body_preview: str) -> str:
-        return f"""Extract structured information from this email.
+        return f"""EMAIL CONTENT:
+Subject: {subject}
+From: {sender}
+Body:
+{body_preview}
 
-Details:
-- Subject: {subject}
-- From: {sender}
-- Body: {body_preview}
-
-Response MUST be a JSON object with this structure:
-{{
-  "summary": "one sentence summary",
-  "entities": {{
-    "organizations": [],
-    "people": [],
-    "dates": [],
-    "monetary_values": []
-  }},
-  "structured_data": {{
-      "type": "invoice/receipt/meeting/newsletter/other",
-      "fields": {{}}
-  }},
-  "action_items": []
-}}
+INSTRUCTIONS:
+Extract structured data from the email above.
 
 Guidelines:
-- Summary: High-level TL;DR.
-- Entities: List specific organizations, people, dates, and amounts found.
-- Structured Data: If it's an invoice, include 'amount', 'due_date', 'invoice_number'. If a meeting, include 'time', 'location', 'attendees'. 
-- Action Items: Extract specific tasks or deadlines required of the recipient."""
+- Summary: High-level TL;DR (max 2 sentences).
+- Entities: Specific organizations, people, dates, amounts.
+- Structured Data: Identify type (Invoice/Meeting/etc) and key fields.
+- Action Items: Tasks or deadlines for the recipient.
+
+REQUIRED OUTPUT FORMAT (JSON):
+{{
+  "summary": "string",
+  "entities": {{
+    "organizations": ["org1"],
+    "people": ["person1"],
+    "dates": ["date1"],
+    "monetary_values": ["$10.00"]
+  }},
+  "structured_data": {{
+      "type": "invoice/meeting/other",
+      "fields": {{ "key": "value" }}
+  }},
+  "action_items": ["task1", "task2"]
+}}
+
+Return ONLY JSON."""
 
     def _parse_json_response(self, text: str) -> Optional[Dict]:
         """

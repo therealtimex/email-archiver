@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-12-27
+
+### Added
+- **LLM Optimization**: Implemented a comprehensive optimization suite for AI classification and extraction, significantly improving performance with local models (Llama 3, Mistral) and reducing token usage.
+    - **Content Cleaning**: New `ContentCleaner` utility removes footers, legal disclaimers, and deep reply chains to reduce noise.
+    - **Markdown Conversion**: Automatically converts HTML emails to lightweight Markdown structure (preserving headers, lists, and links) for better semantic understanding by LLMs.
+    - **HTML Fallback**: Added support for processing HTML-only emails (common in newsletters) by stripping tags and converting to text.
+    - **Prompt Engineering**: Restructured prompts to be "Local LLM Friendly" with explicit schema instructions at the end of the prompt.
+    - **Metadata Signals**: The classifier now utilizes `List-Unsubscribe`, `X-Priority`, and `Importance` headers as additional signals.
+
 ## [1.1.1] - 2025-12-26
 
 ### Fixed

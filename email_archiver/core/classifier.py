@@ -79,20 +79,31 @@ class EmailClassifier:
             to = to or email_obj.get('to', '')
             cc = cc or email_obj.get('cc', '')
             
+            # Extract useful headers for context
+            headers = {
+                "X-Priority": email_obj.get('X-Priority'),
+                "Importance": email_obj.get('Importance'),
+                "List-Unsubscribe": email_obj.get('List-Unsubscribe')
+            }
+            
             # Get email body (prefer plain text)
             body = self._extract_body(email_obj)
             
-            # Truncate body to avoid token limits (keep first 1000 chars)
-            body_preview = body[:1000] if body else ""
+            # Use ContentCleaner
+            from email_archiver.core.content_cleaner import ContentCleaner
+            body = ContentCleaner.clean_email_body(body)
             
-            # Create classification prompt
-            prompt = self._create_classification_prompt(subject, sender, to, cc, body_preview)
+            # Truncate body to avoid token limits (keep first 1500 chars - slightly more than before due to cleaning)
+            body_preview = body[:1500] if body else ""
+            
+            # Create optimized classification prompt
+            prompt = self._create_classification_prompt(subject, sender, to, cc, body_preview, headers)
             
             # Prepare OpenAI call arguments
             completion_args = {
                 "model": self.model,
                 "messages": [
-                    {"role": "system", "content": "You are an email classification assistant. Classify emails accurately and provide reasoning."},
+                    {"role": "system", "content": "You are an email classifier."},
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.3,
@@ -124,9 +135,10 @@ class EmailClassifier:
     
     def _extract_body(self, email_obj: Message) -> str:
         """
-        Extracts email body text.
+        Extracts email body text, preferring plain text but falling back to HTML.
         """
         body = ""
+        html_body = ""
         
         if email_obj.is_multipart():
             for part in email_obj.walk():
@@ -137,47 +149,72 @@ class EmailClassifier:
                         break
                     except:
                         pass
+                elif content_type == "text/html":
+                    try:
+                        html_body = part.get_payload(decode=True).decode('utf-8', errors='ignore')
+                    except:
+                        pass
         else:
             try:
-                body = email_obj.get_payload(decode=True).decode('utf-8', errors='ignore')
+                payload = email_obj.get_payload(decode=True).decode('utf-8', errors='ignore')
+                if email_obj.get_content_type() == "text/html":
+                    html_body = payload
+                else:
+                    body = payload
             except:
                 pass
         
-        return body.strip()
+        # Determine strict preference
+        final_body = body if body.strip() else html_body
+        return final_body.strip()
     
-    def _create_classification_prompt(self, subject: str, sender: str, to: str, cc: str, body_preview: str) -> str:
+    def _create_classification_prompt(self, subject: str, sender: str, to: str, cc: str, body_preview: str, headers: Dict) -> str:
         """
         Creates the classification prompt for OpenAI.
         """
         categories_str = ", ".join(self.categories)
         
-        prompt = f"""Classify the following email into one of these categories: {categories_str}
+        # Additional signals from headers
+        signals = []
+        if headers.get('List-Unsubscribe'):
+            signals.append("- Contains List-Unsubscribe header (Likely Newsletter/Promotional)")
+        if headers.get('X-Priority') or headers.get('Importance'):
+            signals.append(f"- Priority/Importance level: {headers.get('X-Priority') or headers.get('Importance')}")
 
-Email Details:
-- Subject: {subject}
-- From: {sender}
-- To: {to}
-- Cc: {cc}
-- Body Preview: {body_preview}
+        signals_str = "\n".join(signals) if signals else "- None"
+        
+        prompt = f"""EMAIL CONTENT:
+Subject: {subject}
+From: {sender}
+To: {to}
+Cc: {cc}
+Body:
+{body_preview}
 
-Provide your response as JSON with the following structure:
+METADATA SIGNALS:
+{signals_str}
+
+INSTRUCTIONS:
+Classify this email into ONE category: {categories_str}.
+
+Definitions:
+- "important": Work-related, urgent, from known contacts
+- "promotional": Marketing, sales, discounts
+- "transactional": Receipts, shipping, confirmations
+- "social": LinkedIn, friends, social updates
+- "newsletter": Subscribed content
+- "spam": Junk, suspicious
+
+REQUIRED OUTPUT FORMAT (JSON):
 {{
-  "category": "one of the categories",
+  "category": "category_name",
   "confidence": 0.0-1.0,
-  "reasoning": "brief explanation",
+  "reasoning": "short explanation",
   "is_important": true/false,
-  "tags": ["tag1", "tag2", "tag3"]
+  "tags": ["tag1", "tag2"]
 }}
 
-Guidelines:
-- "important": Work-related, urgent, from known contacts, requires action
-- "promotional": Marketing, sales, offers, discounts
-- "transactional": Receipts, confirmations, shipping notifications
-- "social": Social media notifications, friend requests
-- "newsletter": Subscribed content, regular updates
-- "spam": Unsolicited, suspicious, phishing attempts
-
-Be accurate and concise."""
+Return ONLY JSON."""
         return prompt
 
     def _parse_json_response(self, text: str) -> Optional[Dict]:
