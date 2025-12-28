@@ -92,6 +92,9 @@ email-archiver --provider gmail --query "has:attachment" --since 2024-01-01
 
 # From specific sender
 email-archiver --provider gmail --query "from:important@example.com"
+
+# Specific single email by ID
+email-archiver --provider gmail --message-id 18e876a43b21
 ```
 
 ### Webhook Integration

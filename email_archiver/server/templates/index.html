@@ -295,7 +295,7 @@
                                 </button>
 
                                 <!-- Glow effect -->
-                                <div class="absolute inset-0 bg-primary/20 blur-3xl -z-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                <div class="absolute inset-0 bg-primary/20 blur-3xl -z-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
                                     :class="status.is_running ? 'opacity-100' : ''"></div>
                             </div>
 
@@ -414,15 +414,22 @@
                                         <div>
                                             <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Since
                                                 Date</label>
-                                            <input type="date" x-model="syncConfig.since"
-                                                class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white">
+                                            <input type="date" x-model="syncConfig.since" :disabled="!!syncConfig.specific_id"
+                                                class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white disabled:opacity-30 disabled:cursor-not-allowed">
                                         </div>
                                         <div>
-                                            <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">After
-                                                ID</label>
-                                            <input type="text" x-model="syncConfig.after_id" placeholder="Optional"
+                                            <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Specific
+                                                Email ID</label>
+                                            <input type="text" x-model="syncConfig.specific_id" placeholder="Optional - Overrides Date"
+                                                @input="if($event.target.value) syncConfig.since = '';"
                                                 class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white placeholder:text-slate-600">
                                         </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">After
+                                            ID</label>
+                                        <input type="text" x-model="syncConfig.after_id" placeholder="Optional - Fetch after this ID"
+                                            class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white placeholder:text-slate-600">
                                     </div>
                                     <div>
                                         <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Search
@@ -1085,6 +1092,7 @@
                     embed: true,
                     since: new Date().toISOString().split('T')[0],
                     after_id: '',
+                    specific_id: '',
                     query: '',
                     local_only: false
                 },

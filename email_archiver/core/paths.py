@@ -110,6 +110,12 @@ def get_auth_dir() -> Path:
         if is_safe_path(path):
             return path
         logging.warning(f"EESA_AUTH_DIR unsafe, using default")
+    
+    # Check local directory first for developer convenience
+    local_auth = Path.cwd() / "auth"
+    if local_auth.exists() and local_auth.is_dir() and is_safe_path(local_auth):
+        return local_auth
+        
     return get_data_dir() / "auth"
 
 def get_download_dir() -> Path:

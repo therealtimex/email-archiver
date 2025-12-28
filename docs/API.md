@@ -44,6 +44,14 @@ Download emails received after a specific message ID.
 uv run main.py --provider gmail --after-id abc123xyz
 ```
 
+#### `--message-id MESSAGE_ID`
+Download a specific single email by its unique Message ID (overrides other filters).
+
+**Example:**
+```bash
+uv run main.py --provider gmail --message-id 1934ad239c82
+```
+
 #### `--incremental`
 Resume from the last checkpoint. Uses `config/checkpoint.json` to determine the starting point.
 

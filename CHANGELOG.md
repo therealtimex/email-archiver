@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.8] - 2025-12-27
+
+### Added
+- **Specific Email Archival**: Added `--message-id` CLI argument to download a single email by its unique ID, overriding other filters.
+- **Metadata Output Path**: Added `--metadata-output` argument to specify custom path for metadata JSONL file.
+
+### Fixed
+- **Gmail Message-ID Search**: Fixed `--message-id` to correctly use `rfc822msgid:` operator for Message-ID headers (containing `@`), and direct fetch for Gmail internal IDs. Previous implementation used invalid `id:` operator that returned 0 results.
+
 ## [1.2.7] - 2025-12-27
 
 ### Added

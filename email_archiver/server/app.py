@@ -78,6 +78,7 @@ class SyncRequest(BaseModel):
     embed: bool = False
     since: Optional[str] = None
     after_id: Optional[str] = None
+    specific_id: Optional[str] = None
     query: Optional[str] = None
     llm_base_url: Optional[str] = None
     llm_api_key: Optional[str] = None
@@ -249,7 +250,7 @@ async def download_email(message_id: str):
         media_type='message/rfc822'
     )
 
-async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, rename: bool = False, embed: bool = False, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None, llm_base_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: Optional[str] = None, local_only: bool = False):
+async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, rename: bool = False, embed: bool = False, since: Optional[str] = None, after_id: Optional[str] = None, specific_id: Optional[str] = None, query: Optional[str] = None, llm_base_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: Optional[str] = None, local_only: bool = False):
     global sync_status
     sync_status["is_running"] = True
     sync_status["is_cancelled"] = False # Reset cancellation state
@@ -264,7 +265,7 @@ async def run_sync_task(provider: str, incremental: bool, classify: bool, extrac
         logging.info(f"Initiating sync for provider: {provider}")
         from email_archiver.main import run_archiver_logic
         
-        await asyncio.to_thread(run_archiver_logic, provider, incremental, classify, extract, since, after_id, query, rename, embed, llm_api_key, llm_model, llm_base_url, local_only)
+        await asyncio.to_thread(run_archiver_logic, provider, incremental, classify, extract, since, after_id, specific_id, query, rename, embed, llm_api_key, llm_model, llm_base_url, local_only)
         
         logging.info("Synchronization completed successfully.")
         sync_status["last_run"] = datetime.now().isoformat()
@@ -323,6 +324,7 @@ async def trigger_sync(request: SyncRequest, background_tasks: BackgroundTasks):
         request.embed,
         request.since,
         request.after_id,
+        request.specific_id,
         request.query,
         request.llm_base_url,
         request.llm_api_key,

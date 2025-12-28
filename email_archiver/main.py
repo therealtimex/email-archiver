@@ -105,6 +105,7 @@ def main():
     parser.add_argument('--provider', choices=['gmail', 'm365'], help='Email provider')
     parser.add_argument('--since', help='Download emails since date (YYYY-MM-DD)')
     parser.add_argument('--after-id', help='Download emails received after a specific unique Message ID')
+    parser.add_argument('--message-id', help='Download a specific email by its ID (overrides other filters)')
     parser.add_argument('--incremental', action='store_true', help='Resume from last checkpoint')
     parser.add_argument('--query', help='Custom advanced query string')
     # Webhook CLI overrides
@@ -120,6 +121,7 @@ def main():
     parser.add_argument('--llm-base-url', help='Base URL for the LLM API')
     parser.add_argument('--skip-promotional', action='store_true', help='Skip promotional emails (requires --classify)')
     parser.add_argument('--extract', action='store_true', help='Enable advanced metadata extraction (v0.5.0+)')
+    parser.add_argument('--metadata-output', help='Path to save metadata JSONL file (default: email_metadata.jsonl)')
     parser.add_argument('--rename', action='store_true', help='Intelligently rename .eml files to clean slugs (v0.8.4+)')
     parser.add_argument('--embed', action='store_true', help='Embed AI metadata directly into .eml headers (v0.8.4+)')
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
@@ -151,6 +153,7 @@ def main():
             incremental=args.incremental,
             since=args.since,
             after_id=args.after_id,
+            specific_id=args.message_id,
             query=args.query,
             classify=args.classify,
             extract=args.extract,
@@ -174,7 +177,7 @@ def main():
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
-def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, query=None, rename=False, embed=False, llm_api_key=None, llm_model=None, llm_base_url=None, local_only=False):
+def run_archiver_logic(provider, incremental=True, classify=False, extract=False, since=None, after_id=None, specific_id=None, query=None, rename=False, embed=False, llm_api_key=None, llm_model=None, llm_base_url=None, local_only=False):
     """Entry point for UI to run sync."""
     config = load_config(CONFIG_PATH)
     
@@ -213,6 +216,7 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
         extract=extract,
         since=since,
         after_id=after_id,
+        specific_id=specific_id,
         query=query,
         config=config,
         checkpoint=checkpoint,
@@ -229,7 +233,8 @@ def run_archiver_logic_internal(
     provider, 
     incremental=False, 
     since=None, 
-    after_id=None, 
+    after_id=None,
+    specific_id=None,
     query=None, 
     classify=False, 
     extract=False,
@@ -250,8 +255,17 @@ def run_archiver_logic_internal(
     rename=False,
     embed=False
 ):
+    # Handle specific ID override
+    if specific_id:
+        logging.info(f"Targeting specific email ID: {specific_id}")
+        # Disable other filters to ensure we get exactly this email
+        since = None
+        after_id = None
+        incremental = False
+        query = None
+
     # Default 'since' to today if not provided to avoid downloading everything
-    if not since and not after_id and not query and not local_only:
+    if not since and not after_id and not query and not specific_id and not local_only:
         since = datetime.now().strftime('%Y-%m-%d')
         logging.info(f"No date filter provided. Defaulting to sync from: {since}")
 
@@ -365,64 +379,83 @@ def run_archiver_logic_internal(
 
             if provider == 'gmail':
                 query_parts = []
-                if query:
-                    query_parts.append(query)
+
+                if specific_id:
+                    # Specific ID overrides everything else
+                    # Distinguish between Message-ID headers (contain "@") and Gmail internal IDs
+                    if "@" in specific_id:
+                        # This is a Message-ID header (RFC 2822), use rfc822msgid: operator
+                        query_parts.append(f"rfc822msgid:{specific_id}")
+                    else:
+                        # This is a Gmail internal ID, skip search and fetch directly
+                        ids_to_fetch = [{'id': specific_id}]
+                        logging.info(f"Gmail Direct ID: {specific_id}")
+                else:
+                    if query:
+                        query_parts.append(query)
+                        
+                    if since:
+                        # Gmail uses YYYY/MM/DD
+                        date_str = since.replace('-', '/')
+                        query_parts.append(f"after:{date_str}")
+                        
+                    if incremental:
+                        # Checkpoint for Gmail: 'last_internal_date' (milliseconds)
+                        last_ts = db.get_checkpoint('gmail')
+                        if not last_ts:
+                             # Fallback to legay if needed (migration should have handled it)
+                             last_ts = checkpoint.get('gmail', {}).get('last_internal_date', 0)
+                        
+                        if last_ts:
+                            # internalDate is ms, divide by 1000
+                            ts_seconds = int(int(last_ts) / 1000)
+                            query_parts.append(f"after:{ts_seconds}")
                     
-                if since:
-                    # Gmail uses YYYY/MM/DD
-                    date_str = since.replace('-', '/')
-                    query_parts.append(f"after:{date_str}")
-                    
-                if incremental:
-                    # Checkpoint for Gmail: 'last_internal_date' (milliseconds)
-                    last_ts = db.get_checkpoint('gmail')
-                    if not last_ts:
-                         # Fallback to legay if needed (migration should have handled it)
-                         last_ts = checkpoint.get('gmail', {}).get('last_internal_date', 0)
-                    
-                    if last_ts:
-                        # internalDate is ms, divide by 1000
-                        ts_seconds = int(int(last_ts) / 1000)
-                        query_parts.append(f"after:{ts_seconds}")
-                
-                # 'after-id' logic for Gmail is tricky without specific API calls to get that ID's date first.
-                # Implemented simply by warning or assuming user might provide custom query.
-                if after_id:
-                    logging.warning("--after-id not fully implemented for Gmail automatic date resolution. Use --query for precise control.")
-                
-                final_query = " ".join(query_parts)
-                logging.info(f"Gmail Query: {final_query}")
-                
-                # Fetch IDs (returns dicts with 'id', 'threadId')
-                messages = handler.fetch_ids(final_query)
-                ids_to_fetch = messages
+                    # 'after-id' logic for Gmail is tricky without specific API calls to get that ID's date first.
+                    # Implemented simply by warning or assuming user might provide custom query.
+                    if after_id:
+                        logging.warning("--after-id not fully implemented for Gmail automatic date resolution. Use --query for precise control.")
+
+                # Only fetch if we haven't already set ids_to_fetch directly (e.g., for Gmail internal IDs)
+                if not ids_to_fetch:
+                    final_query = " ".join(query_parts)
+                    logging.info(f"Gmail Query: {final_query}")
+
+                    # Fetch IDs (returns dicts with 'id', 'threadId')
+                    messages = handler.fetch_ids(final_query)
+                    ids_to_fetch = messages
     
             elif provider == 'm365':
-                filter_parts = []
-                # Since
-                if since:
-                    filter_parts.append(f"receivedDateTime ge {since}T00:00:00Z")
+                if specific_id:
+                     # Direct ID targeting for M365 (bypass filter query)
+                     ids_to_fetch = [{'id': specific_id}]
+                     logging.info(f"M365 Direct ID: {specific_id}")
+                else:
+                    filter_parts = []
+                    # Since
+                    if since:
+                        filter_parts.append(f"receivedDateTime ge {since}T00:00:00Z")
+                        
+                    # Incremental
+                    if incremental:
+                        last_time = db.get_checkpoint('m365')
+                        if not last_time:
+                            last_time = checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
+                        filter_parts.append(f"receivedDateTime gt {last_time}")
+                        
+                    # After-ID (Resolve ID to time first would be ideal, but for now just support custom query or since)
+                    if after_id: 
+                        # Implementation for resolving ID would go here, skipping for MVP/Simplicity unless requested
+                         logging.warning("--after-id logic requires extra roundtrip, skipping specific resolution for now.")
+        
+                    final_filter = " and ".join(filter_parts) if filter_parts else None
                     
-                # Incremental
-                if incremental:
-                    last_time = db.get_checkpoint('m365')
-                    if not last_time:
-                        last_time = checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
-                    filter_parts.append(f"receivedDateTime gt {last_time}")
+                    logging.info(f"M365 Filter: {final_filter}")
+                    logging.info(f"M365 Search: {query}")
                     
-                # After-ID (Resolve ID to time first would be ideal, but for now just support custom query or since)
-                if after_id: 
-                    # Implementation for resolving ID would go here, skipping for MVP/Simplicity unless requested
-                     logging.warning("--after-id logic requires extra roundtrip, skipping specific resolution for now.")
-    
-                final_filter = " and ".join(filter_parts) if filter_parts else None
-                
-                logging.info(f"M365 Filter: {final_filter}")
-                logging.info(f"M365 Search: {query}")
-                
-                # Fetch IDs (returns dicts with 'id', 'receivedDateTime')
-                messages = handler.fetch_ids(filter_str=final_filter, search_str=query)
-                ids_to_fetch = messages
+                    # Fetch IDs (returns dicts with 'id', 'receivedDateTime')
+                    messages = handler.fetch_ids(filter_str=final_filter, search_str=query)
+                    ids_to_fetch = messages
             
         logging.info(f"Starting download for {len(ids_to_fetch)} messages...")
         
