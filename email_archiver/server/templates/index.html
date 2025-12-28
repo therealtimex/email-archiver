@@ -74,6 +74,48 @@
         .text-tiny {
             font-size: 11px;
         }
+
+        /* Beautiful Tooltips */
+        .tooltip-trigger {
+            position: relative;
+            overflow: visible;
+            cursor: help;
+            z-index: 1;
+        }
+
+        /* Lift the whole trigger above siblings (Incremental switch, buttons, etc.) */
+        .tooltip-trigger:hover {
+            z-index: 999999;
+        }
+
+        /* Tooltip box */
+        .tooltip-content {
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%) translateY(0);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999999;
+
+            /* keep your styling */
+            padding: 0.75rem 1rem;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(12px);
+            color: #e2e8f0;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            transition: opacity .2s ease, transform .2s ease;
+        }
+
+        /* This is the “make it appear” rule */
+        .tooltip-trigger:hover .tooltip-content {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-4px);
+        }
     </style>
     <script>
         tailwind.config = {
@@ -166,7 +208,8 @@
         <main class="flex-1 flex flex-col overflow-hidden p-4 md:p-6 lg:p-8">
 
             <!-- Dashboard View -->
-            <div x-show="activeTab === 'dashboard'" class="flex-1 overflow-y-auto space-y-4 md:space-y-6 lg:space-y-8 pr-2">
+            <div x-show="activeTab === 'dashboard'"
+                class="flex-1 overflow-y-auto space-y-4 md:space-y-6 lg:space-y-8 pr-2">
 
                 <!-- Connection Wizard / Welcome -->
                 <div x-show="!authStatus.gmail && !authStatus.m365 && stats.total_archived === 0"
@@ -224,17 +267,17 @@
                 </div>
 
                 <!-- Sync Console -->
-                <div class="glass rounded-2xl p-4 md:p-5 lg:p-6 relative overflow-hidden">
+                <div class="glass rounded-2xl p-4 md:p-5 lg:p-6 relative overflow-visible" style="isolation:isolate;">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="font-bold text-slate-300">Synchronization Engine</h2>
                     </div>
 
                     <div class="flex flex-col lg:flex-row gap-6 md:gap-8 items-start justify-center">
-                        <div class="flex flex-col items-center gap-6">
+                        <div class="flex flex-col items-center gap-6 relative z-0">
                             <!-- Big Sync Button -->
                             <div class="relative group">
                                 <button @click="status.is_running ? stopSync() : triggerSync()"
-                                    class="w-40 h-40 rounded-full glass border-2 border-primary/20 flex flex-col items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 group relative z-10 overflow-hidden">
+                                    class="w-40 h-40 rounded-full glass border-2 border-primary/20 flex flex-col items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 group relative overflow-hidden">
 
                                     <div x-show="status.is_running"
                                         class="absolute inset-0 border-2 border-primary animate-[spin_2s_linear_infinite] border-t-transparent rounded-full">
@@ -257,7 +300,7 @@
                             </div>
 
                             <button x-show="!status.is_running" @click="triggerSync(true)"
-                                class="flex items-center gap-2 px-3 py-1.5 rounded-full glass border border-white/10 hover:bg-white/10 transition-colors group/btn relative z-20">
+                                class="flex items-center gap-2 px-3 py-1.5 rounded-full glass border border-white/10 hover:bg-white/10 transition-colors group/btn relative">
                                 <span
                                     class="text-xs font-bold text-slate-400 uppercase tracking-wider group-hover/btn:text-slate-200">Re-analyze
                                     Local Archive</span>
@@ -270,7 +313,7 @@
                             </button>
 
                             <!-- Quick Context -->
-                            <div class="w-full max-w-md space-y-4">
+                            <div class="w-full max-w-md space-y-4 relative z-20">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label
@@ -290,8 +333,15 @@
                                                     :class="syncConfig.incremental ? 'translate-x-5 bg-white' : ''">
                                                 </div>
                                             </div>
-                                            <span
-                                                class="text-xs font-bold text-slate-400 uppercase">Incremental</span>
+                                            <div class="tooltip-trigger inline-block">
+                                                <span
+                                                    class="text-xs font-bold text-slate-400 uppercase">Incremental</span>
+                                                <div class="tooltip-content">
+                                                    <strong>Incremental Sync</strong><br>
+                                                    Only fetch new emails since last sync. Much faster! Disable for full
+                                                    re-sync from scratch.
+                                                </div>
+                                            </div>
                                         </label>
                                     </div>
                                 </div>
@@ -299,24 +349,52 @@
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.classify" class="accent-primary">
-                                        <span class="text-sm font-semibold text-slate-300">AI Classify</span>
+                                        <div class="tooltip-trigger inline-block">
+                                            <span class="text-sm font-semibold text-slate-300">AI Classify</span>
+                                            <div class="tooltip-content">
+                                                <strong>AI Classification</strong><br>
+                                                Auto-categorize emails (Work, Personal, Finance, etc.) using AI. Adds
+                                                searchable labels to your archive.
+                                            </div>
+                                        </div>
                                     </label>
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.extract" class="accent-indigo-500">
-                                        <span class="text-sm font-semibold text-slate-300">Deep Extract</span>
+                                        <div class="tooltip-trigger inline-block">
+                                            <span class="text-sm font-semibold text-slate-300">Deep Extract</span>
+                                            <div class="tooltip-content">
+                                                <strong>Deep Extraction</strong><br>
+                                                Extract summaries, action items, people, and organizations using AI.
+                                                Creates structured intelligence data.
+                                            </div>
+                                        </div>
                                     </label>
                                 </div>
                                 <div class="flex gap-4">
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.rename" class="accent-amber-500">
-                                        <span class="text-sm font-semibold text-slate-300">Rename Files</span>
+                                        <div class="tooltip-trigger inline-block">
+                                            <span class="text-sm font-semibold text-slate-300">Rename Files</span>
+                                            <div class="tooltip-content">
+                                                <strong>AI-Powered Filenames</strong><br>
+                                                Use AI-generated smart filenames instead of timestamps. Makes files
+                                                easier to find in your filesystem.
+                                            </div>
+                                        </div>
                                     </label>
                                     <label
                                         class="flex items-center gap-3 glass px-3 py-2 rounded-xl cursor-pointer hover:bg-white/10 transition-colors flex-1">
                                         <input type="checkbox" x-model="syncConfig.embed" class="accent-emerald-500">
-                                        <span class="text-sm font-semibold text-slate-300">Embed Metadata</span>
+                                        <div class="tooltip-trigger inline-block">
+                                            <span class="text-sm font-semibold text-slate-300">Embed Metadata</span>
+                                            <div class="tooltip-content">
+                                                <strong>Embed Metadata Headers</strong><br>
+                                                Inject AI data as X-EESA headers directly into .eml files. Data travels
+                                                with the file forever!
+                                            </div>
+                                        </div>
                                     </label>
                                 </div>
 
@@ -328,22 +406,19 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                                         </svg>
-                                        <span
-                                            class="text-xs font-bold text-slate-400 uppercase tracking-wider">Advanced
+                                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Advanced
                                             Filters</span>
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label
-                                                class="block text-xs text-slate-400 mb-1 uppercase font-bold">Since
+                                            <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">Since
                                                 Date</label>
                                             <input type="date" x-model="syncConfig.since"
                                                 class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white">
                                         </div>
                                         <div>
-                                            <label
-                                                class="block text-xs text-slate-400 mb-1 uppercase font-bold">After
+                                            <label class="block text-xs text-slate-400 mb-1 uppercase font-bold">After
                                                 ID</label>
                                             <input type="text" x-model="syncConfig.after_id" placeholder="Optional"
                                                 class="bg-white/5 border border-white/10 rounded-lg p-2 text-xs w-full focus:outline-none focus:border-primary/50 text-white placeholder:text-slate-600">
@@ -398,7 +473,8 @@
 
                 <!-- Recent Emails -->
                 <div class="glass rounded-2xl overflow-hidden">
-                    <div class="p-4 md:p-6 border-b border-white/10 flex flex-col sm:flex-row gap-3 sm:gap-0 justify-between items-start sm:items-center">
+                    <div
+                        class="p-4 md:p-6 border-b border-white/10 flex flex-col sm:flex-row gap-3 sm:gap-0 justify-between items-start sm:items-center">
                         <h2 class="font-bold flex items-center gap-2 text-slate-300">
                             <span class="w-1.5 h-1.5 rounded-full bg-primary shadow shadow-primary"></span>
                             Intelligence Feed
@@ -414,8 +490,7 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm border-collapse">
                             <thead>
-                                <tr
-                                    class="text-slate-400 uppercase text-xs tracking-wide border-b border-white/5">
+                                <tr class="text-slate-400 uppercase text-xs tracking-wide border-b border-white/5">
                                     <th class="px-6 py-4 font-semibold">Subject</th>
                                     <th class="px-6 py-4 font-semibold">Sender</th>
                                     <th class="px-6 py-4 font-semibold">Date</th>
@@ -454,20 +529,74 @@
                         <div x-show="emails.length === 0" class="p-12 text-center text-slate-600">
                             No emails found matching your current filter.
                         </div>
-                        <div class="p-4 flex justify-center border-t border-white/5" x-show="emails.length > 0">
-                            <button @click="loadMore()" :disabled="isLoadingMore"
-                                class="px-6 py-2 glass rounded-lg text-xs font-bold text-slate-400 hover:text-primary transition-all uppercase tracking-wider flex items-center gap-2">
-                                <span x-show="isLoadingMore"
-                                    class="w-3 h-3 border border-slate-500 border-t-primary rounded-full animate-spin"></span>
-                                Load More Messages
-                            </button>
+
+                        <!-- Pagination -->
+                        <div x-show="emails.length > 0" class="p-4 md:p-6 border-t border-white/5">
+                            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                                <!-- Page Info -->
+                                <div class="text-xs text-slate-500">
+                                    Showing <span class="text-slate-300 font-semibold"
+                                        x-text="((currentPage - 1) * pageSize) + 1"></span>
+                                    to <span class="text-slate-300 font-semibold"
+                                        x-text="Math.min(currentPage * pageSize, stats.total_archived)"></span>
+                                    of <span class="text-slate-300 font-semibold" x-text="stats.total_archived"></span>
+                                    emails
+                                </div>
+
+                                <!-- Page Controls -->
+                                <div class="flex items-center gap-2">
+                                    <!-- Previous Button -->
+                                    <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1"
+                                        class="px-3 py-2 glass rounded-lg text-xs font-bold transition-all border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+
+                                    <!-- Page Numbers -->
+                                    <div class="flex items-center gap-1">
+                                        <template x-for="page in getPageNumbers()" :key="page">
+                                            <button x-show="page !== '...'"
+                                                @click="page !== '...' ? goToPage(page) : null"
+                                                :class="page === currentPage ? 'bg-primary text-white' : 'glass text-slate-400 hover:bg-white/10'"
+                                                class="w-9 h-9 rounded-lg text-xs font-bold transition-all border border-white/5"
+                                                x-text="page"></button>
+                                            <span x-show="page === '...'" class="px-2 text-slate-600">...</span>
+                                        </template>
+                                    </div>
+
+                                    <!-- Next Button -->
+                                    <button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages"
+                                        class="px-3 py-2 glass rounded-lg text-xs font-bold transition-all border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+
+                                    <!-- Jump to Page -->
+                                    <div class="hidden lg:flex items-center gap-2 ml-4 pl-4 border-l border-white/10">
+                                        <span class="text-xs text-slate-500">Go to:</span>
+                                        <input type="number" x-model.number="jumpToPageInput"
+                                            @keydown.enter="goToPage(jumpToPageInput)" min="1" :max="totalPages"
+                                            class="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:border-primary/50"
+                                            placeholder="Page">
+                                        <button @click="goToPage(jumpToPageInput)"
+                                            class="px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-all">
+                                            Go
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Settings View -->
-            <div x-show="activeTab === 'settings'" x-cloak class="flex-1 overflow-y-auto space-y-4 md:space-y-6 lg:space-y-8 pr-2">
+            <div x-show="activeTab === 'settings'" x-cloak
+                class="flex-1 overflow-y-auto space-y-4 md:space-y-6 lg:space-y-8 pr-2">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
                     <!-- General Settings -->
                     <div class="glass p-6 md:p-8 rounded-3xl space-y-6">
@@ -492,8 +621,7 @@
                                         <span class="text-sm text-slate-300">Enable Webhooks</span>
                                     </label>
                                     <div>
-                                        <label
-                                            class="block text-xs font-bold text-slate-400 mb-1 uppercase">Endpoint
+                                        <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">Endpoint
                                             URL</label>
                                         <input type="text" x-model="config.webhook.url" class="input-glass"
                                             placeholder="https://..." :disabled="!config.webhook.enabled">
@@ -936,14 +1064,15 @@
                 emails: [],
                 status: { is_running: false, logs: [] },
                 search: '',
-                skip: 0,
+                currentPage: 1,
+                pageSize: 50,
+                jumpToPageInput: '',
                 selectedEmail: null,
-                isLoadingMore: false,
                 syncConfig: {
                     provider: 'gmail',
                     incremental: true,
                     classify: true,
-                    extract: false,
+                    extract: true,  // ON by default - show full power!
                     rename: true,
                     embed: true,
                     since: new Date().toISOString().split('T')[0],
@@ -967,6 +1096,9 @@
                 resetModal: false,
                 gmailSecretJson: '',
                 m365SecretJson: '',
+                get totalPages() {
+                    return Math.ceil(this.stats.total_archived / this.pageSize) || 1;
+                },
                 setLLMPreset(preset) {
                     if (preset === 'openai') {
                         this.config.classification.base_url = '';
@@ -978,6 +1110,54 @@
                         this.config.classification.base_url = 'http://localhost:1234/v1';
                         this.config.classification.model = 'model-identifier';
                     }
+                },
+                getPageNumbers() {
+                    const pages = [];
+                    const total = this.totalPages;
+                    const current = this.currentPage;
+
+                    if (total <= 7) {
+                        // Show all pages if 7 or fewer
+                        for (let i = 1; i <= total; i++) {
+                            pages.push(i);
+                        }
+                    } else {
+                        // Always show first page
+                        pages.push(1);
+
+                        if (current > 3) {
+                            pages.push('...');
+                        }
+
+                        // Show pages around current
+                        const start = Math.max(2, current - 1);
+                        const end = Math.min(total - 1, current + 1);
+
+                        for (let i = start; i <= end; i++) {
+                            if (!pages.includes(i)) {
+                                pages.push(i);
+                            }
+                        }
+
+                        if (current < total - 2) {
+                            pages.push('...');
+                        }
+
+                        // Always show last page
+                        if (!pages.includes(total)) {
+                            pages.push(total);
+                        }
+                    }
+
+                    return pages;
+                },
+                goToPage(page) {
+                    if (page < 1 || page > this.totalPages || page === this.currentPage) return;
+                    this.currentPage = page;
+                    this.jumpToPageInput = '';
+                    this.fetchData(true);
+                    // Scroll to top of table
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 },
                 init() {
                     this.fetchVersion();
@@ -1068,31 +1248,20 @@
                     }
                 },
                 resetAndFetch() {
-                    this.skip = 0;
+                    this.currentPage = 1;
                     this.fetchData(true);
                 },
                 async fetchData(reset = true) {
                     try {
+                        const skip = (this.currentPage - 1) * this.pageSize;
                         const [statsRes, emailsRes] = await Promise.all([
                             fetch('/api/stats'),
-                            fetch(`/api/emails?search=${encodeURIComponent(this.search)}&skip=${this.skip}`)
+                            fetch(`/api/emails?search=${encodeURIComponent(this.search)}&skip=${skip}&limit=${this.pageSize}`)
                         ]);
                         this.stats = await statsRes.json();
                         const newEmails = await emailsRes.json();
-                        if (reset) {
-                            this.emails = newEmails;
-                        } else {
-                            // Append uniquely or just replace? Replace for now if skip is 0, append otherwise
-                            if (this.skip === 0) this.emails = newEmails;
-                            else this.emails = [...this.emails, ...newEmails];
-                        }
+                        this.emails = newEmails;
                     } catch (e) { console.error('Data fetch error:', e); }
-                },
-                async loadMore() {
-                    this.isLoadingMore = true;
-                    this.skip += 50;
-                    await this.fetchData(false);
-                    this.isLoadingMore = false;
                 },
                 openEmail(email) {
                     this.selectedEmail = email;
