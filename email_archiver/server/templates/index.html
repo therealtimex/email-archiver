@@ -945,13 +945,21 @@
             <div class="p-4 md:p-6 border-b border-white/10 flex justify-between items-start">
                 <div>
                     <h3 class="text-xl font-bold text-slate-200" x-text="selectedEmail?.subject"></h3>
-                    <div class="flex gap-4 mt-2">
-                        <span class="text-xs text-slate-500">From: <span class="text-slate-300"
-                                x-text="selectedEmail?.sender"></span></span>
-                        <span class="text-xs text-slate-500">Date: <span class="text-slate-300"
-                                x-text="formatDate(selectedEmail?.received_at)"></span></span>
-                    </div>
-                </div>
+                                            <div class="flex gap-4 mt-2">
+                                                <span class="text-xs text-slate-500">From: <span class="text-slate-300"
+                                                        x-text="selectedEmail?.sender"></span></span>
+                                                <span class="text-xs text-slate-500">Date: <span class="text-slate-300"
+                                                        x-text="formatDate(selectedEmail?.received_at)"></span></span>
+                                                
+                                                <a :href="`/api/emails/${encodeURIComponent(selectedEmail?.message_id)}/download`" 
+                                                   target="_blank"
+                                                   class="text-xs font-bold text-primary hover:text-white transition-colors flex items-center gap-1 ml-4 border-l border-white/10 pl-4">
+                                                   <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                   </svg>
+                                                   Download EML
+                                                </a>
+                                            </div>                </div>
                 <button @click="selectedEmail = null" class="text-slate-500 hover:text-white transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">

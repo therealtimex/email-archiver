@@ -4,7 +4,7 @@ import logging
 import asyncio
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -216,6 +216,38 @@ async def get_stats():
 @app.get("/api/emails")
 async def get_emails(limit: int = 50, skip: int = 0, search: Optional[str] = None):
     return db.get_emails(limit=limit, offset=skip, search_query=search)
+
+@app.get("/api/emails/{message_id}/download")
+async def download_email(message_id: str):
+    """Downloads the raw .eml file for an email."""
+    # Since message_id might be URL encoded by the client, FastAPI decodes it automatically.
+    # However, if it contains slashes, it might be tricky. M365 IDs are usually safe base64url.
+    
+    email = db.get_email(message_id)
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    
+    file_path = email.get("file_path")
+    if not file_path:
+         raise HTTPException(status_code=404, detail="File path not recorded for this email")
+
+    # Resolve path (in case it's relative or just to be safe)
+    try:
+        abs_path = resolve_path(file_path)
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Error resolving file path: {e}")
+
+    if not os.path.exists(abs_path):
+        raise HTTPException(status_code=404, detail="Email file not found on disk")
+        
+    # Sanitize filename for download
+    filename = os.path.basename(abs_path)
+    
+    return FileResponse(
+        path=abs_path, 
+        filename=filename, 
+        media_type='message/rfc822'
+    )
 
 async def run_sync_task(provider: str, incremental: bool, classify: bool, extract: bool, rename: bool = False, embed: bool = False, since: Optional[str] = None, after_id: Optional[str] = None, query: Optional[str] = None, llm_base_url: Optional[str] = None, llm_api_key: Optional[str] = None, llm_model: Optional[str] = None, local_only: bool = False):
     global sync_status
