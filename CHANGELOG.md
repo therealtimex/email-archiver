@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2025-12-27
+
+### Fixed
+- **CI/CD**: Added `workflow_dispatch` to the release workflow to allow manual triggering of releases from the GitHub Actions tab.
+
 ## [1.2.4] - 2025-12-27
 
 ### Added
