@@ -4,6 +4,7 @@ from typing import Dict, Optional, List
 from email.message import Message
 import openai
 from email_archiver.core.paths import get_llm_config
+from email_archiver.core.llm_error_handler import SmartLLMHandler
 
 class EmailClassifier:
     """
@@ -22,19 +23,20 @@ class EmailClassifier:
     def __init__(self, config: dict):
         self.config = config.get('classification', {})
         self.enabled = self.config.get('enabled', False)
-        
+        self.error_handler = SmartLLMHandler()
+
         if not self.enabled:
             return
-            
+
         # 1. Standardized config from environment/defaults
         std_config = get_llm_config()
-        
+
         # 2. Local/Specific overrides (config file or CLI)
         self.base_url = self.config.get('base_url') or std_config.get('base_url')
-        
+
         # Resolve API Key: CLI/Config > Env (LLM_API_KEY > OPENAI_API_KEY)
         api_key = self.config.get('api_key') or self.config.get('openai_api_key') or std_config.get('api_key')
-        
+
         # Infer if we're using a local provider that doesn't need an API key
         is_openai = not self.base_url or "openai.com" in self.base_url
         if not is_openai and not api_key:
@@ -45,33 +47,69 @@ class EmailClassifier:
             logging.warning("Classification enabled but no API key provided. Disabling classification.")
             self.enabled = False
             return
-            
+
         self.model = self.config.get('model') or std_config.get('model', 'gpt-4o-mini')
         self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url, timeout=60.0)
-        
+
         self.categories = self.config.get('categories', self.DEFAULT_CATEGORIES)
         self.skip_categories = self.config.get('skip_categories', [])
-        
+
         logging.info(f"Email classification enabled with model: {self.model} (Endpoint: {self.base_url or 'OpenAI'})")
     
+    def check_health(self) -> bool:
+        """
+        Quick health check to test LLM connectivity before processing.
+        Returns True if healthy, False otherwise.
+        """
+        if not self.enabled:
+            return True
+
+        try:
+            logging.info("Testing LLM connectivity...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=1,
+                timeout=5.0
+            )
+            logging.info(f"✅ LLM is reachable ({self.base_url or 'OpenAI'})")
+            return True
+        except Exception as e:
+            logging.error(f"❌ LLM health check failed: {e}")
+            should_disable = self.error_handler.handle_error(e, "health check")
+            if should_disable:
+                logging.warning("AI classification will be disabled for this sync.")
+                self.enabled = False
+            return False
+
     def should_skip(self, classification: Dict) -> bool:
         """
         Determines if an email should be skipped based on its classification.
         """
         if not self.enabled:
             return False
-            
+
         category = classification.get('category', '').lower()
         return category in [c.lower() for c in self.skip_categories]
+
+    def get_stats(self) -> dict:
+        """Get error handler statistics"""
+        return self.error_handler.get_stats_summary()
+
+    def format_stats(self) -> str:
+        """Format statistics as human-readable string"""
+        return self.error_handler.format_stats_summary()
     
     def classify_email(self, email_obj: Message, subject: str = None, sender: str = None, to: str = None, cc: str = None) -> Optional[Dict]:
         """
         Classifies an email using OpenAI.
         Returns classification metadata or None if classification is disabled.
         """
-        if not self.enabled:
+        if not self.enabled or self.error_handler.is_circuit_open():
             return None
-        
+
+        self.error_handler.record_attempt()
+
         try:
             # Extract email content
             subject = subject or email_obj.get('subject', 'No Subject')
@@ -124,13 +162,22 @@ class EmailClassifier:
             if not classification:
                 logging.error(f"Failed to parse classification JSON. Raw response: {classification_text[:500]}...")
                 return None
-            
+
+            # Record success
+            self.error_handler.record_success()
             logging.info(f"Classified email '{subject[:50]}...' as '{classification.get('category')}'")
-            
+
             return classification
-            
+
         except Exception as e:
-            logging.error(f"Error classifying email: {e}")
+            # Use smart error handler
+            context = f"email '{subject[:50] if subject else 'unknown'}...'"
+            should_disable = self.error_handler.handle_error(e, context)
+
+            if should_disable:
+                logging.error("❌ Disabling classification for remaining emails in this sync")
+                self.enabled = False
+
             return None
     
     def _extract_body(self, email_obj: Message) -> str:

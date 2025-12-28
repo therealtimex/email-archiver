@@ -214,6 +214,59 @@ async def save_secrets(provider: str, data: Dict[str, Any]):
 async def get_stats():
     return db.get_stats()
 
+@app.get("/api/ai-stats")
+async def get_ai_stats():
+    """Returns AI processing statistics (success/failure rates)."""
+    return db.get_ai_stats()
+
+@app.get("/api/llm-status")
+async def get_llm_status():
+    """Returns current LLM health status."""
+    # Check if sync is running and get status from the running classifier
+    if sync_status.get("is_running"):
+        # During sync, we can't easily access the classifier instance
+        # So we return the sync status
+        return {
+            "status": "checking",
+            "message": "Sync in progress, status will update"
+        }
+
+    # When not syncing, do a quick health check
+    try:
+        from email_archiver.main import load_config
+        config = load_config(CONFIG_PATH)
+        classifier = EmailClassifier(config)
+
+        if not classifier.enabled:
+            return {
+                "status": "disabled",
+                "message": "AI classification is not enabled"
+            }
+
+        # Quick health check
+        is_healthy = classifier.check_health()
+
+        if is_healthy:
+            return {
+                "status": "online",
+                "message": f"LLM is reachable ({classifier.base_url or 'OpenAI'})",
+                "endpoint": classifier.base_url or "OpenAI",
+                "model": classifier.model
+            }
+        else:
+            error_reason = classifier.error_handler.circuit_breaker.get('open_reason', 'Unknown error')
+            return {
+                "status": "offline",
+                "message": f"LLM is unreachable: {error_reason}",
+                "endpoint": classifier.base_url or "OpenAI"
+            }
+    except Exception as e:
+        logging.error(f"Error checking LLM status: {e}")
+        return {
+            "status": "error",
+            "message": f"Error checking status: {str(e)}"
+        }
+
 @app.get("/api/emails")
 async def get_emails(limit: int = 50, skip: int = 0, search: Optional[str] = None):
     return db.get_emails(limit=limit, offset=skip, search_query=search)

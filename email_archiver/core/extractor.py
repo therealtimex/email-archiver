@@ -4,6 +4,7 @@ from typing import Dict, Optional, List
 from email.message import Message
 import openai
 from email_archiver.core.paths import get_llm_config
+from email_archiver.core.llm_error_handler import SmartLLMHandler
 
 class EmailExtractor:
     """
@@ -13,22 +14,23 @@ class EmailExtractor:
     def __init__(self, config: dict):
         self.config = config.get('extraction', {})
         self.enabled = self.config.get('enabled', False)
-        
+        self.error_handler = SmartLLMHandler()
+
         if not self.enabled:
             return
-            
+
         # 1. Standardized config from environment/defaults
         std_config = get_llm_config()
-        
+
         # 2. Local/Specific overrides (config file or CLI)
         llm_config = config.get('classification', {})
-        
+
         # Resolve Base URL: CLI/Config(Extraction) > CLI/Config(Classification) > Env (LLM_BASE_URL)
         self.base_url = self.config.get('base_url') or llm_config.get('base_url') or std_config.get('base_url')
-        
+
         # Resolve API Key
         api_key = self.config.get('api_key') or llm_config.get('api_key') or llm_config.get('openai_api_key') or std_config.get('api_key')
-        
+
         # Infer if we're using a local provider that doesn't need an API key
         is_openai = not self.base_url or "openai.com" in self.base_url
         if not is_openai and not api_key:
@@ -39,19 +41,55 @@ class EmailExtractor:
             logging.warning("Extraction enabled but no API key provided. Disabling extraction.")
             self.enabled = False
             return
-            
+
         self.model = self.config.get('model') or llm_config.get('model') or std_config.get('model', 'gpt-4o-mini')
         self.client = openai.OpenAI(api_key=api_key, base_url=self.base_url, timeout=60.0)
-        
+
         logging.info(f"Advanced extraction enabled with model: {self.model} (Endpoint: {self.base_url or 'OpenAI'})")
-    
+
+    def check_health(self) -> bool:
+        """
+        Quick health check to test LLM connectivity before processing.
+        Returns True if healthy, False otherwise.
+        """
+        if not self.enabled:
+            return True
+
+        try:
+            logging.info("Testing LLM connectivity for extraction...")
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=1,
+                timeout=5.0
+            )
+            logging.info(f"✅ LLM is reachable for extraction ({self.base_url or 'OpenAI'})")
+            return True
+        except Exception as e:
+            logging.error(f"❌ LLM health check failed for extraction: {e}")
+            should_disable = self.error_handler.handle_error(e, "health check")
+            if should_disable:
+                logging.warning("AI extraction will be disabled for this sync.")
+                self.enabled = False
+            return False
+
+    def get_stats(self) -> dict:
+        """Get error handler statistics"""
+        return self.error_handler.get_stats_summary()
+
+    def format_stats(self) -> str:
+        """Format statistics as human-readable string"""
+        return self.error_handler.format_stats_summary()
+
     def extract_metadata(self, email_obj: Message, subject: str = None, sender: str = None) -> Optional[Dict]:
         """
         Extracts structured metadata from the email.
         """
-        if not self.enabled:
+        if not self.enabled or self.error_handler.is_circuit_open():
             return None
-            
+
+        self.error_handler.record_attempt()
+
         try:
             body = self._extract_body(email_obj)
             if not body and not subject:
@@ -92,11 +130,21 @@ class EmailExtractor:
             if not extraction:
                 logging.error(f"Failed to parse extraction JSON. Raw response: {raw_content[:500]}...")
                 return None
+
+            # Record success
+            self.error_handler.record_success()
             logging.info(f"Extracted metadata for '{subject[:50]}...'")
             return extraction
-            
+
         except Exception as e:
-            logging.error(f"Error extracting metadata: {e}")
+            # Use smart error handler
+            context = f"email '{subject[:50] if subject else 'unknown'}...'"
+            should_disable = self.error_handler.handle_error(e, context)
+
+            if should_disable:
+                logging.error("❌ Disabling extraction for remaining emails in this sync")
+                self.enabled = False
+
             return None
 
     def _extract_body(self, email_obj: Message) -> str:

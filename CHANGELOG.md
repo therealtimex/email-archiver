@@ -5,14 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.8] - 2025-12-27
+## [1.3.0] - 2025-12-28
 
 ### Added
 - **Specific Email Archival**: Added `--message-id` CLI argument to download a single email by its unique ID, overriding other filters.
 - **Metadata Output Path**: Added `--metadata-output` argument to specify custom path for metadata JSONL file.
+- **Smart LLM Error Handling**: Implemented intelligent error classification for LLM failures with circuit breaker pattern:
+  - Distinguishes between network errors, auth failures, rate limits, server errors, and parsing issues
+  - Fast failure detection: Disables LLM after 2 network errors (vs. 60s timeout × N emails)
+  - Auto-retry with exponential backoff for rate limiting (429 errors)
+  - Continues archiving emails even when LLM fails
+  - Health check before sync starts to fail fast on unreachable endpoints
+  - Detailed statistics reporting at end of sync
+  - Graceful degradation: Only disables AI features when truly unavailable
+- **AI Processing Status Tracking in Database**: Added columns to track AI processing status for each email:
+  - `ai_classification_status`: Tracks success/failed/disabled/skipped for classification
+  - `ai_extraction_status`: Tracks success/failed/disabled/skipped for extraction
+  - `ai_processing_error`: Stores error message when AI processing fails
+  - `ai_processed_at`: Timestamp of AI processing attempt
+  - New methods: `get_emails_by_ai_status()` and `get_ai_stats()` for querying failed emails
+  - Automatic migration for existing databases
+- **Retry AI Processing**: Added `--retry-ai` command to reprocess emails that previously failed AI classification/extraction:
+  - Queries database for emails with failed/disabled AI status
+  - Prompts user for confirmation before reprocessing
+  - Useful for retrying after fixing LLM configuration or network issues
+- **Configurable LLM Timeout**: Added `--llm-timeout` argument to customize API timeout (default: 60 seconds):
+  - Allows faster failure detection in unreliable network environments
+  - Can be set lower (e.g., 10s) for local LLMs or higher for slow cloud providers
+- **Fallback Rule-Based Classification**: When LLM is disabled, system now uses basic rule-based classification:
+  - Detects newsletters by checking for "Unsubscribe" links and List-Unsubscribe headers
+  - Categorizes emails with common promotional keywords
+  - Ensures emails still get basic categorization even when AI is unavailable
+- **Web UI: LLM Status Monitoring**: Added real-time LLM health status to the dashboard:
+  - Live status indicator (🟢 Online / 🔴 Offline / ⚠️ Error)
+  - Displays endpoint URL and model name
+  - Warning banner when LLM is unreachable
+  - Automatic health check on page load and every 2 seconds
+  - Click to retry connectivity test
+- **Web UI: AI Success Rate Display**: Added AI processing statistics to the dashboard:
+  - Classification success/failure counts
+  - Extraction success/failure counts
+  - Visual display of AI processing reliability
+  - Updates in real-time during sync operations
 
 ### Fixed
 - **Gmail Message-ID Search**: Fixed `--message-id` to correctly use `rfc822msgid:` operator for Message-ID headers (containing `@`), and direct fetch for Gmail internal IDs. Previous implementation used invalid `id:` operator that returned 0 results.
+- **LLM Timeout UX**: Dramatically improved user experience when LLM endpoint is unreachable (e.g., network change, VPN disconnect). Previously waited 60s × number of emails; now detects and disables after ~10 seconds.
+- **Database Migration Order**: Fixed initialization sequence to run AI status column migration before creating indexes, preventing errors when upgrading from older database schemas.
 
 ## [1.2.7] - 2025-12-27
 

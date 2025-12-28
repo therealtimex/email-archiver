@@ -237,8 +237,25 @@
                     </div>
                 </div>
 
+                <!-- LLM Warning Banner -->
+                <div x-show="llmStatus.status === 'offline' || llmStatus.status === 'error'"
+                     x-transition
+                     class="glass border-2 border-red-500/30 bg-red-500/5 p-4 rounded-xl mb-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">⚠️</span>
+                        <div class="flex-1">
+                            <h3 class="text-red-400 font-semibold mb-1">LLM Unavailable</h3>
+                            <p class="text-sm text-slate-400" x-text="llmStatus.message">LLM is not reachable</p>
+                        </div>
+                        <button @click="refreshLLMStatus()"
+                                class="px-3 py-1 text-xs bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors">
+                            Retry
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Stats Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                     <div class="glass p-5 md:p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
                             <span class="text-xs font-medium text-slate-400 tracking-wider">TOTAL ARCHIVED</span>
@@ -253,8 +270,12 @@
                             <span class="text-secondary text-xl">🧠</span>
                         </div>
                         <div class="text-3xl font-bold mb-1" x-text="stats.classified.toLocaleString()">0</div>
-                        <div class="text-tiny text-green-400/80">Active Categories: <span
-                                x-text="Object.keys(stats.categories).length">0</span></div>
+                        <div class="text-tiny text-green-400/80" x-show="aiStats.classification.total > 0">
+                            Success Rate: <span x-text="((aiStats.classification.success / aiStats.classification.total) * 100).toFixed(1)">0</span>%
+                        </div>
+                        <div class="text-tiny text-slate-500" x-show="aiStats.classification.total === 0">
+                            Active Categories: <span x-text="Object.keys(stats.categories).length">0</span>
+                        </div>
                     </div>
                     <div class="glass p-5 md:p-6 rounded-2xl">
                         <div class="flex justify-between items-start mb-2">
@@ -262,7 +283,22 @@
                             <span class="text-indigo-400 text-xl">📊</span>
                         </div>
                         <div class="text-3xl font-bold mb-1" x-text="stats.extracted.toLocaleString()">0</div>
-                        <div class="text-tiny text-indigo-400/80">Structured Extraction Enabled</div>
+                        <div class="text-tiny text-indigo-400/80" x-show="aiStats.extraction.total > 0">
+                            Success Rate: <span x-text="((aiStats.extraction.success / aiStats.extraction.total) * 100).toFixed(1)">0</span>%
+                        </div>
+                        <div class="text-tiny text-slate-500" x-show="aiStats.extraction.total === 0">
+                            Structured Extraction Enabled
+                        </div>
+                    </div>
+                    <div class="glass p-5 md:p-6 rounded-2xl cursor-pointer" @click="refreshLLMStatus()">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-medium text-slate-400 tracking-wider">LLM STATUS</span>
+                            <span x-text="llmStatus.status === 'online' ? '🟢' : llmStatus.status === 'offline' || llmStatus.status === 'error' ? '🔴' : llmStatus.status === 'disabled' ? '⚪' : '🟡'" class="text-xl"></span>
+                        </div>
+                        <div class="text-2xl font-bold mb-1 capitalize"
+                             :class="llmStatus.status === 'online' ? 'text-green-400' : llmStatus.status === 'offline' || llmStatus.status === 'error' ? 'text-red-400' : 'text-slate-400'"
+                             x-text="llmStatus.status">Checking...</div>
+                        <div class="text-tiny text-slate-500" x-text="llmStatus.model || 'Click to check'">-</div>
                     </div>
                 </div>
 
@@ -1112,6 +1148,11 @@
                 resetModal: false,
                 gmailSecretJson: '',
                 m365SecretJson: '',
+                llmStatus: { status: 'checking', message: '', endpoint: '', model: '' },
+                aiStats: {
+                    classification: { success: 0, failed: 0, disabled: 0, skipped: 0, total: 0 },
+                    extraction: { success: 0, failed: 0, disabled: 0, skipped: 0, total: 0 }
+                },
                 get totalPages() {
                     return Math.ceil(this.stats.total_archived / this.pageSize) || 1;
                 },
@@ -1180,9 +1221,13 @@
                     this.resetAndFetch();
                     this.fetchSettings();
                     this.checkAuthStatus();
+                    this.refreshLLMStatus();
+                    this.refreshAIStats();
 
                     setInterval(() => {
                         this.fetchStatus();
+                        this.refreshLLMStatus();
+                        this.refreshAIStats();
                         if (this.status.is_running) {
                             this.fetchData(false); // Update stats/logs, but don't reset list if syncing
                             this.$nextTick(() => {
@@ -1287,6 +1332,22 @@
                         const res = await fetch('/api/status');
                         this.status = await res.json();
                     } catch (e) { }
+                },
+                async refreshLLMStatus() {
+                    try {
+                        const res = await fetch('/api/llm-status');
+                        this.llmStatus = await res.json();
+                    } catch (e) {
+                        this.llmStatus = { status: 'error', message: 'Failed to check LLM status' };
+                    }
+                },
+                async refreshAIStats() {
+                    try {
+                        const res = await fetch('/api/ai-stats');
+                        this.aiStats = await res.json();
+                    } catch (e) {
+                        console.error('AI stats fetch error:', e);
+                    }
                 },
                 async fetchSettings() {
                     try {

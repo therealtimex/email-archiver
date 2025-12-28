@@ -72,6 +72,161 @@ def save_checkpoint(path, data):
     with open(path, 'w') as f:
         json.dump(data, f, indent=2)
 
+def retry_ai_processing(classify=False, extract=False, llm_api_key=None, llm_model=None, llm_base_url=None, llm_timeout=None):
+    """
+    Retry AI processing on emails that previously failed.
+    """
+    config = load_config(CONFIG_PATH)
+    db = DBHandler()
+
+    # Get emails that failed AI processing
+    failed_emails = db.get_emails_by_ai_status('failed', limit=1000)
+    disabled_emails = db.get_emails_by_ai_status('disabled', limit=1000)
+    all_retry_emails = failed_emails + disabled_emails
+
+    if not all_retry_emails:
+        print("✅ No emails found that need AI retry.")
+        return
+
+    print(f"\n📧 Found {len(all_retry_emails)} emails that need AI retry")
+    print(f"   - Failed: {len(failed_emails)}")
+    print(f"   - Disabled: {len(disabled_emails)}")
+
+    confirm = input("\nProceed with retry? (y/N): ").lower().strip()
+    if confirm != 'y':
+        print("Retry cancelled.")
+        return
+
+    # Setup classification config
+    classification_config = config.get('classification', {})
+    if classify:
+        classification_config['enabled'] = True
+    if llm_api_key:
+        classification_config['api_key'] = llm_api_key
+    if llm_model:
+        classification_config['model'] = llm_model
+    if llm_base_url:
+        classification_config['base_url'] = llm_base_url
+
+    config['classification'] = classification_config
+    classifier = EmailClassifier(config)
+
+    # Apply timeout if specified
+    if llm_timeout and classifier.enabled:
+        classifier.client = openai.OpenAI(
+            api_key=classifier.client.api_key,
+            base_url=classifier.base_url,
+            timeout=llm_timeout
+        )
+
+    # Setup extraction config
+    extraction_config = config.get('extraction', {})
+    if extract:
+        extraction_config['enabled'] = True
+    config['extraction'] = extraction_config
+    extractor = EmailExtractor(config)
+
+    if llm_timeout and extractor.enabled:
+        extractor.client = openai.OpenAI(
+            api_key=extractor.client.api_key,
+            base_url=extractor.base_url,
+            timeout=llm_timeout
+        )
+
+    # Health checks
+    if classifier.enabled:
+        classifier.check_health()
+    if extractor.enabled:
+        extractor.check_health()
+
+    print(f"\n🔄 Starting AI retry for {len(all_retry_emails)} emails...")
+
+    success_count = 0
+    failed_count = 0
+
+    for email_data in tqdm(all_retry_emails):
+        try:
+            # Read the EML file
+            file_path = email_data['file_path']
+            if not os.path.exists(file_path):
+                logging.warning(f"File not found: {file_path}")
+                continue
+
+            with open(file_path, 'rb') as f:
+                from email import message_from_bytes
+                email_obj = message_from_bytes(f.read())
+
+            subject = email_data['subject'] or 'No Subject'
+            sender = email_data['sender'] or 'Unknown'
+            recipients = email_data['recipients'] or ''
+
+            # Retry classification
+            classification = None
+            if classifier.enabled:
+                classification = classifier.classify_email(email_obj, subject, sender, recipients, '')
+
+            # Retry extraction
+            extraction = None
+            if extractor.enabled:
+                extraction = extractor.extract_metadata(email_obj, subject, sender)
+
+            # Determine new AI status
+            ai_classification_status = None
+            ai_extraction_status = None
+            ai_processing_error = None
+
+            if classifier.enabled or classifier.error_handler.stats['total_calls'] > 0:
+                if classification:
+                    ai_classification_status = 'success'
+                    success_count += 1
+                elif classifier.error_handler.is_circuit_open():
+                    ai_classification_status = 'disabled'
+                    ai_processing_error = classifier.error_handler.circuit_breaker.get('open_reason', 'Unknown')
+                    failed_count += 1
+                else:
+                    ai_classification_status = 'failed'
+                    failed_count += 1
+
+            if extractor.enabled or extractor.error_handler.stats['total_calls'] > 0:
+                if extraction:
+                    ai_extraction_status = 'success'
+                elif extractor.error_handler.is_circuit_open():
+                    ai_extraction_status = 'disabled'
+                    if not ai_processing_error:
+                        ai_processing_error = extractor.error_handler.circuit_breaker.get('open_reason', 'Unknown')
+                else:
+                    ai_extraction_status = 'failed'
+
+            # Update database with new results
+            db.record_email(
+                message_id=email_data['message_id'],
+                provider=email_data['provider'],
+                subject=subject,
+                sender=sender,
+                recipients=recipients,
+                received_at=email_data['received_at'],
+                file_path=file_path,
+                classification=classification,
+                extraction=extraction,
+                ai_classification_status=ai_classification_status,
+                ai_extraction_status=ai_extraction_status,
+                ai_processing_error=ai_processing_error
+            )
+
+        except Exception as e:
+            logging.error(f"Error retrying email {email_data.get('message_id')}: {e}")
+            failed_count += 1
+
+    print(f"\n✅ Retry complete!")
+    print(f"   - Successful: {success_count}")
+    print(f"   - Failed: {failed_count}")
+
+    # Show stats
+    if classifier.enabled:
+        print(f"\n{classifier.format_stats()}")
+    if extractor.enabled:
+        print(f"\n{extractor.format_stats()}")
+
 def perform_factory_reset():
     """Wipes all data for a clean slate."""
     from email_archiver.core.utils import perform_reset
@@ -127,6 +282,8 @@ def main():
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
     parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
+    parser.add_argument('--retry-ai', action='store_true', help='Retry AI classification/extraction on emails that previously failed')
+    parser.add_argument('--llm-timeout', type=float, help='Timeout in seconds for LLM API calls (default: 60)')
     parser.add_argument('--reset', action='store_true', help='FACTORY RESET: Deletes all data (DB, logs, downloads) to start fresh.')
     
     args = parser.parse_args()
@@ -134,7 +291,19 @@ def main():
     if args.reset:
         perform_factory_reset()
         return
-    
+
+    # Handle --retry-ai
+    if args.retry_ai:
+        retry_ai_processing(
+            classify=args.classify,
+            extract=args.extract,
+            llm_api_key=args.llm_api_key,
+            llm_model=args.llm_model,
+            llm_base_url=args.llm_base_url,
+            llm_timeout=args.llm_timeout
+        )
+        return
+
     # Handle UI early
     if args.ui:
         from email_archiver.server.app import start_server
@@ -163,6 +332,7 @@ def main():
             llm_base_url=args.llm_base_url,
             llm_api_key=args.llm_api_key,
             llm_model=args.llm_model,
+            llm_timeout=args.llm_timeout,
             webhook_url=args.webhook_url,
             webhook_secret=args.webhook_secret,
             download_dir=args.download_dir,
@@ -230,13 +400,13 @@ def run_archiver_logic(provider, incremental=True, classify=False, extract=False
     )
 
 def run_archiver_logic_internal(
-    provider, 
-    incremental=False, 
-    since=None, 
+    provider,
+    incremental=False,
+    since=None,
     after_id=None,
     specific_id=None,
-    query=None, 
-    classify=False, 
+    query=None,
+    classify=False,
     extract=False,
     openai_api_key=None,
     skip_promotional=False,
@@ -244,6 +414,7 @@ def run_archiver_logic_internal(
     llm_base_url=None,
     llm_api_key=None,
     llm_model=None,
+    llm_timeout=None,
     webhook_url=None,
     webhook_secret=None,
     download_dir=None,
@@ -324,16 +495,40 @@ def run_archiver_logic_internal(
     # Initialize classifier
     config['classification'] = classification_config
     classifier = EmailClassifier(config)
-    
+
+    # Apply custom timeout if specified
+    if llm_timeout and classifier.enabled:
+        classifier.client = openai.OpenAI(
+            api_key=classifier.client.api_key,
+            base_url=classifier.base_url,
+            timeout=llm_timeout
+        )
+        logging.info(f"Using custom LLM timeout: {llm_timeout}s")
+
     # Apply extraction overrides
     extraction_config = config.get('extraction', {})
     if extract:
         extraction_config['enabled'] = True
     config['extraction'] = extraction_config
-    
+
     # Initialize extractor
     extractor = EmailExtractor(config)
-    
+
+    # Apply custom timeout to extractor if specified
+    if llm_timeout and extractor.enabled:
+        extractor.client = openai.OpenAI(
+            api_key=extractor.client.api_key,
+            base_url=extractor.base_url,
+            timeout=llm_timeout
+        )
+
+    # Perform health checks if LLM features are enabled
+    if not local_only:
+        if classifier.enabled:
+            classifier.check_health()
+        if extractor.enabled:
+            extractor.check_health()
+
     # Open metadata file with try-finally to ensure proper cleanup
     metadata_file_handle = None
 
@@ -534,7 +729,40 @@ def run_archiver_logic_internal(
                 extraction = None
                 if extractor.enabled:
                     extraction = extractor.extract_metadata(email_obj, subject, sender)
-                
+
+                # Determine AI processing status for database tracking
+                ai_classification_status = None
+                ai_extraction_status = None
+                ai_processing_error = None
+
+                # Classification status
+                if classifier.enabled or classifier.error_handler.stats['total_calls'] > 0:
+                    if classification:
+                        ai_classification_status = 'success'
+                    elif classifier.error_handler.is_circuit_open():
+                        ai_classification_status = 'disabled'
+                        ai_processing_error = classifier.error_handler.circuit_breaker.get('open_reason', 'Unknown error')
+                    else:
+                        ai_classification_status = 'failed'
+                        # Get last error from error handler if available
+                        if classifier.error_handler.stats['errors_by_type']:
+                            error_types = list(classifier.error_handler.stats['errors_by_type'].keys())
+                            ai_processing_error = f"Classification failed: {', '.join(error_types)}"
+
+                # Extraction status
+                if extractor.enabled or extractor.error_handler.stats['total_calls'] > 0:
+                    if extraction:
+                        ai_extraction_status = 'success'
+                    elif extractor.error_handler.is_circuit_open():
+                        ai_extraction_status = 'disabled'
+                        if not ai_processing_error:  # Don't overwrite classification error
+                            ai_processing_error = extractor.error_handler.circuit_breaker.get('open_reason', 'Unknown error')
+                    else:
+                        ai_extraction_status = 'failed'
+                        if not ai_processing_error and extractor.error_handler.stats['errors_by_type']:
+                            error_types = list(extractor.error_handler.stats['errors_by_type'].keys())
+                            ai_processing_error = f"Extraction failed: {', '.join(error_types)}"
+
                 timestamp = datetime.now()
                 
                 if provider == 'm365' and metadata.get('receivedDateTime'):
@@ -584,7 +812,10 @@ def run_archiver_logic_internal(
                             received_at=timestamp,
                             file_path=file_path,
                             classification=classification,
-                            extraction=extraction
+                            extraction=extraction,
+                            ai_classification_status=ai_classification_status,
+                            ai_extraction_status=ai_extraction_status,
+                            ai_processing_error=ai_processing_error
                         )
                 else:
                     with open(file_path, 'wb') as f:
@@ -628,7 +859,10 @@ def run_archiver_logic_internal(
                         received_at=timestamp,
                         file_path=file_path,
                         classification=classification,
-                        extraction=extraction
+                        extraction=extraction,
+                        ai_classification_status=ai_classification_status,
+                        ai_extraction_status=ai_extraction_status,
+                        ai_processing_error=ai_processing_error
                     )
                     
                 if success_count % 10 == 0 and success_count > 0:
@@ -653,8 +887,19 @@ def run_archiver_logic_internal(
             db.save_checkpoint('m365', current_m365_checkpoint)
         elif provider == 'gmail':
             db.save_checkpoint('gmail', current_gmail_checkpoint)
-        
+
     logging.info(f"Sync complete. Processed {len(ids_to_fetch)} messages. New files: {success_count}. Updated: {len(ids_to_fetch) - success_count if local_only else 'N/A'}")
+
+    # Report AI processing statistics
+    if classifier.enabled or classifier.error_handler.stats['total_calls'] > 0:
+        classifier_stats = classifier.format_stats()
+        if classifier_stats:
+            logging.info(f"Classification: {classifier_stats}")
+
+    if extractor.enabled or extractor.error_handler.stats['total_calls'] > 0:
+        extractor_stats = extractor.format_stats()
+        if extractor_stats:
+            logging.info(f"Extraction: {extractor_stats}")
 
 if __name__ == '__main__':
     main()
