@@ -6,6 +6,7 @@ import json
 import base64
 from datetime import datetime
 from email.utils import formatdate
+from email.header import decode_header
 import requests
 import ipaddress
 import socket
@@ -40,6 +41,44 @@ def setup_logging(log_file=None):
         handlers=handlers
     )
     logging.info(f"Logging initialized. Log target: {actual_log_path}")
+
+def decode_mime_header(header_value):
+    """
+    Decodes MIME-encoded email headers (RFC 2047) to plain text.
+
+    Handles headers like:
+        =?UTF-8?B?W1RDVFQgxJHhuqV0IMSRYWldIEhvw6BuIHRoaeG7h24ga+G6v3QgcXXhuqMgaG/huqF0IA==?=
+        =?UTF-8?B?xJHhu5luZyAyIHbDoCAz?=
+
+    Returns:
+        Decoded string in UTF-8
+    """
+    if not header_value:
+        return header_value
+
+    try:
+        # decode_header returns a list of (decoded_bytes, charset) tuples
+        decoded_parts = decode_header(header_value)
+
+        # Reconstruct the string
+        result = []
+        for part, charset in decoded_parts:
+            if isinstance(part, bytes):
+                # Decode bytes using the specified charset, or UTF-8 as fallback
+                try:
+                    result.append(part.decode(charset or 'utf-8'))
+                except (UnicodeDecodeError, LookupError):
+                    # If charset is invalid or decoding fails, try UTF-8
+                    result.append(part.decode('utf-8', errors='replace'))
+            else:
+                # Already a string
+                result.append(part)
+
+        return ''.join(result)
+
+    except Exception as e:
+        logging.warning(f"Failed to decode MIME header: {e}. Returning raw value.")
+        return header_value
 
 def sanitize_filename(text):
     """

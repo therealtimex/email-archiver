@@ -708,12 +708,13 @@ def run_archiver_logic_internal(
             
             if file_content:
                 from email import message_from_bytes
+                from email_archiver.core.utils import decode_mime_header
                 email_obj = message_from_bytes(file_content)
-                subject = email_obj.get('subject', 'No Subject')
-                sender = email_obj.get('from', 'Unknown')
-                recipients_to = email_obj.get('to', '')
-                recipients_cc = email_obj.get('cc', '')
-                recipients_bcc = email_obj.get('bcc', '')
+                subject = decode_mime_header(email_obj.get('subject', 'No Subject'))
+                sender = decode_mime_header(email_obj.get('from', 'Unknown'))
+                recipients_to = decode_mime_header(email_obj.get('to', ''))
+                recipients_cc = decode_mime_header(email_obj.get('cc', ''))
+                recipients_bcc = decode_mime_header(email_obj.get('bcc', ''))
                 
                 classification = None
                 should_skip = False

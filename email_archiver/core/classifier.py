@@ -111,11 +111,12 @@ class EmailClassifier:
         self.error_handler.record_attempt()
 
         try:
+            from email_archiver.core.utils import decode_mime_header
             # Extract email content
-            subject = subject or email_obj.get('subject', 'No Subject')
-            sender = sender or email_obj.get('from', 'Unknown')
-            to = to or email_obj.get('to', '')
-            cc = cc or email_obj.get('cc', '')
+            subject = subject or decode_mime_header(email_obj.get('subject', 'No Subject'))
+            sender = sender or decode_mime_header(email_obj.get('from', 'Unknown'))
+            to = to or decode_mime_header(email_obj.get('to', ''))
+            cc = cc or decode_mime_header(email_obj.get('cc', ''))
             
             # Extract useful headers for context
             headers = {

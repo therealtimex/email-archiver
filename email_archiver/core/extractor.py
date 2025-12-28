@@ -94,9 +94,10 @@ class EmailExtractor:
             body = self._extract_body(email_obj)
             if not body and not subject:
                 return None
-                
-            subject = subject or email_obj.get('subject', 'No Subject')
-            sender = sender or email_obj.get('from', 'Unknown')
+
+            from email_archiver.core.utils import decode_mime_header
+            subject = subject or decode_mime_header(email_obj.get('subject', 'No Subject'))
+            sender = sender or decode_mime_header(email_obj.get('from', 'Unknown'))
             
             # Use ContentCleaner
             from email_archiver.core.content_cleaner import ContentCleaner
