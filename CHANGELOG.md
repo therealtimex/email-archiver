@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-12-28
+
+### Fixed
+- **MIME Header Decoding**: Fixed email subjects, senders, and recipients with special characters (Vietnamese, Chinese, emoji, etc.) being stored in raw MIME-encoded format. The system now properly decodes RFC 2047 headers (e.g., `=?UTF-8?B?...?=`) to readable text. This fixes display issues in the Web UI, database, and filenames for international emails.
+
 ## [1.3.0] - 2025-12-28
 
 ### Added
