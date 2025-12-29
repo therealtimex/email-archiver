@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2025-12-28
+
+### Fixed
+- **Read-Only File System Error**: Fixed `[Errno 30] Read-only file system: 'email_metadata.jsonl'` error when running in containerized or sandboxed environments (e.g., RealTimeX local apps). Metadata file now writes to the data directory instead of the current working directory, which may be read-only.
+
 ## [1.3.3] - 2025-12-28
 
 ### Fixed

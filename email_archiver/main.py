@@ -540,6 +540,8 @@ def run_archiver_logic_internal(
     try:
         if classifier.enabled or extractor.enabled:
             metadata_path = classification_config.get('metadata_file', 'email_metadata.jsonl')
+            # Resolve path to ensure it's in a writable location (data directory)
+            metadata_path = str(resolve_path(metadata_path))
             metadata_file_handle = open(metadata_path, 'a', encoding='utf-8')
             logging.info(f"Metadata will be saved to: {metadata_path}")
 
