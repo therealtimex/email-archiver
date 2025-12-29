@@ -533,6 +533,10 @@ def run_archiver_logic_internal(
     # Open metadata file with try-finally to ensure proper cleanup
     metadata_file_handle = None
 
+    # Initialize checkpoint variables early to avoid UnboundLocalError in finally block
+    current_gmail_checkpoint = db.get_checkpoint('gmail') or checkpoint.get('gmail', {}).get('last_internal_date', 0)
+    current_m365_checkpoint = db.get_checkpoint('m365') or checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
+
     try:
         if classifier.enabled or extractor.enabled:
             metadata_path = classification_config.get('metadata_file', 'email_metadata.jsonl')
@@ -660,11 +664,7 @@ def run_archiver_logic_internal(
         # ---------------------------
         success_count = 0
         max_checkpoint_val = 0 # Track strict ordering if possible, or just max seen
-        
-        # For checkpoint updates
-        current_gmail_checkpoint = db.get_checkpoint('gmail') or checkpoint.get('gmail', {}).get('last_internal_date', 0)
-        current_m365_checkpoint = db.get_checkpoint('m365') or checkpoint.get('m365', {}).get('last_received_time', "1970-01-01T00:00:00Z")
-    
+
         for i, msg in enumerate(tqdm(ids_to_fetch)):
             # Check for cancellation
             if check_cancellation and check_cancellation():

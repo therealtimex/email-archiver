@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2025-12-28
+
+### Fixed
+- **Sync Crash on Early Failure**: Fixed `UnboundLocalError: cannot access local variable 'current_gmail_checkpoint'` that occurred when sync failed before the download loop started. Checkpoint variables are now initialized early to ensure they're always available in the cleanup (finally) block.
+
 ## [1.3.2] - 2025-12-28
 
 ### Changed
