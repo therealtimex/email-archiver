@@ -282,6 +282,7 @@ def main():
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
     parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
+    parser.add_argument('--browser', action='store_true', help='Automatically open browser when starting UI')
     parser.add_argument('--retry-ai', action='store_true', help='Retry AI classification/extraction on emails that previously failed')
     parser.add_argument('--llm-timeout', type=float, help='Timeout in seconds for LLM API calls (default: 60)')
     parser.add_argument('--reset', action='store_true', help='FACTORY RESET: Deletes all data (DB, logs, downloads) to start fresh.')
@@ -307,7 +308,7 @@ def main():
     # Handle UI early
     if args.ui:
         from email_archiver.server.app import start_server
-        start_server(port=args.port)
+        start_server(port=args.port, open_browser=args.browser)
         return
 
     if not args.provider:

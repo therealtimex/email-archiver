@@ -403,16 +403,17 @@ async def get_status():
 if os.path.exists(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-def start_server(host="127.0.0.1", port=8000):
+def start_server(host="127.0.0.1", port=8000, open_browser=False):
     import uvicorn
     import webbrowser
     from threading import Timer
 
-    def open_browser():
+    def launch_browser():
         webbrowser.open(f"http://{host}:{port}")
 
     try:
-        Timer(1.5, open_browser).start()
+        if open_browser:
+            Timer(1.5, launch_browser).start()
         uvicorn.run(app, host=host, port=port, log_level="info")
     except KeyboardInterrupt:
         # Silently exit on Ctrl+C
