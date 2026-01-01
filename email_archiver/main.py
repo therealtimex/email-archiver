@@ -280,6 +280,7 @@ def main():
     parser.add_argument('--rename', action='store_true', help='Intelligently rename .eml files to clean slugs (v0.8.4+)')
     parser.add_argument('--embed', action='store_true', help='Embed AI metadata directly into .eml headers (v0.8.4+)')
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
+    parser.add_argument('--ui-legacy', action='store_true', help='Use legacy Alpine.js UI instead of NiceGUI')
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
     parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
     parser.add_argument('--browser', action='store_true', help='Automatically open browser when starting UI')
@@ -307,8 +308,14 @@ def main():
 
     # Handle UI early
     if args.ui:
-        from email_archiver.server.app import start_server
-        start_server(port=args.port, open_browser=args.browser)
+        if args.ui_legacy:
+            # Use legacy Alpine.js UI
+            from email_archiver.server.app import start_server
+            start_server(port=args.port, open_browser=args.browser)
+        else:
+            # Use new NiceGUI UI (default)
+            from email_archiver.server.nicegui_app import start_nicegui_server
+            start_nicegui_server(port=args.port, open_browser=args.browser)
         return
 
     if not args.provider:

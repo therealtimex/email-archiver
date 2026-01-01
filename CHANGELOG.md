@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-12-31
+
+### Added
+- **NiceGUI Web Dashboard**: Migrated from Alpine.js to NiceGUI for improved UX and performance:
+  - Real-time updates via WebSocket (no more 2-second polling)
+  - Built-in toast notifications (replaces browser `alert()`)
+  - Reactive data binding (Python variables sync with UI automatically)
+  - Professional component library (tables, dialogs, forms)
+  - Better accessibility out of the box
+  - ~35% less code for the UI layer
+- **Feature Parity Achieved**: NiceGUI dashboard now includes all features from legacy UI:
+  - AI Stats display with success/failure rates for classification and extraction
+  - Advanced sync options: After ID, Specific ID, Local-only mode
+  - Re-analyze Local Archive button for reprocessing downloaded emails
+  - Email search/filter functionality with real-time updates
+  - Page jump input for quick pagination navigation
+  - Download .eml button in email detail modal
+  - Provider secrets JSON input for Gmail credentials and M365 config
+  - Auto-scroll logs to bottom for better monitoring
+- **Legacy UI Option**: Use `--ui-legacy` flag to use the original Alpine.js UI if needed
+
+### Changed
+- **Default UI**: `--ui` now launches the new NiceGUI dashboard by default
+- **Dependencies**: Added `nicegui>=2.0.0` to requirements
+
 ## [1.3.4] - 2025-12-28
 
 ### Fixed
