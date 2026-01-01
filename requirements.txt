@@ -6,3 +6,4 @@ tqdm
 requests
 pyyaml
 openai>=1.0.0
+nicegui>=3.4.1

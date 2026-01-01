@@ -280,6 +280,7 @@ def main():
     parser.add_argument('--rename', action='store_true', help='Intelligently rename .eml files to clean slugs (v0.8.4+)')
     parser.add_argument('--embed', action='store_true', help='Embed AI metadata directly into .eml headers (v0.8.4+)')
     parser.add_argument('--ui', action='store_true', help='Start the web-based dashboard and UI (v0.6.0+)')
+    parser.add_argument('--ui-legacy', action='store_true', help='Use legacy Alpine.js UI instead of NiceGUI')
     parser.add_argument('--local-only', action='store_true', help='Only process local files and skip remote provider query')
     parser.add_argument('--port', type=int, default=8000, help='Port for the UI dashboard (default: 8000)')
     parser.add_argument('--browser', action='store_true', help='Automatically open browser when starting UI')
@@ -306,13 +307,27 @@ def main():
         return
 
     # Handle UI early
-    if args.ui:
-        from email_archiver.server.app import start_server
-        start_server(port=args.port, open_browser=args.browser)
+    if args.ui or args.ui_legacy:
+        if args.ui_legacy:
+            # Use legacy Alpine.js UI
+            from email_archiver.server.app import start_server
+            try:
+                start_server(port=args.port, open_browser=args.browser)
+            except KeyboardInterrupt:
+                print("\n\nServer stopped by user. Goodbye! 👋")
+                sys.exit(0)
+        else:
+            # Use new NiceGUI UI (default)
+            from email_archiver.server.nicegui_app import start_nicegui_server
+            try:
+                start_nicegui_server(port=args.port, open_browser=args.browser)
+            except KeyboardInterrupt:
+                print("\n\nServer stopped by user. Goodbye! 👋")
+                sys.exit(0)
         return
 
     if not args.provider:
-        parser.error("--provider is required unless using --ui")
+        parser.error("--provider is required unless using --ui or --ui-legacy")
     
     config = load_config(CONFIG_PATH)
     checkpoint = load_checkpoint(CHECKPOINT_PATH)
@@ -906,4 +921,8 @@ def run_archiver_logic_internal(
             logging.info(f"Extraction: {extractor_stats}")
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\nServer stopped by user. Goodbye! 👋")
+        sys.exit(0)
