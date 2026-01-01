@@ -169,7 +169,8 @@ class DBHandler:
             "total_archived": 0,
             "classified": 0,
             "extracted": 0,
-            "categories": {}
+            "categories": {},
+            "last_updated": None
         }
         try:
             with self._get_connection() as conn:
@@ -195,6 +196,22 @@ class DBHandler:
                         stats["categories"][cat] = stats["categories"].get(cat, 0) + 1
                     except:
                         continue
+                
+                # Last Updated
+                cursor.execute('SELECT MAX(updated_at) as last_update FROM checkpoints')
+                checkpoint_last = cursor.fetchone()["last_update"]
+                
+                cursor.execute('SELECT MAX(processed_at) as last_processed FROM emails')
+                email_last = cursor.fetchone()["last_processed"]
+                
+                # Compare and take the most recent
+                if checkpoint_last and email_last:
+                    stats["last_updated"] = max(checkpoint_last, email_last)
+                elif checkpoint_last:
+                    stats["last_updated"] = checkpoint_last
+                elif email_last:
+                    stats["last_updated"] = email_last
+                    
         except Exception as e:
             logging.error(f"Error fetching stats from DB: {e}")
         return stats
@@ -235,6 +252,27 @@ class DBHandler:
         except Exception as e:
             logging.error(f"Error fetching emails from DB: {e}")
         return emails
+
+    def get_email_count(self, search_query=None):
+        """Returns the total number of emails, optionally filtered by search."""
+        count = 0
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = "SELECT COUNT(*) FROM emails"
+                params = []
+                
+                if search_query:
+                    query += " WHERE subject LIKE ? OR sender LIKE ? OR recipients LIKE ? OR classification LIKE ? OR extraction LIKE ?"
+                    search_param = f"%{search_query}%"
+                    params.extend([search_param] * 5)
+                
+                cursor.execute(query, params)
+                count = cursor.fetchone()[0]
+        except Exception as e:
+            logging.error(f"Error counting emails in DB: {e}")
+        return count
 
     def get_checkpoint(self, provider):
         """Returns the last sync value for a provider."""

@@ -12,7 +12,10 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 
 import yaml
+from urllib.parse import quote
 from nicegui import ui, app, Client
+from fastapi import HTTPException
+from fastapi.responses import FileResponse
 
 # Import core logic
 from email_archiver.core.db_handler import DBHandler
@@ -46,6 +49,7 @@ class AppState:
     total_archived: int = 0
     classified: int = 0
     extracted: int = 0
+    last_updated_db: Optional[str] = None
     categories: Dict[str, int] = field(default_factory=dict)
     
     # AI Stats
@@ -61,6 +65,58 @@ class AppState:
 
 state = AppState()
 db = DBHandler()
+
+
+@app.get("/api/status")
+async def get_status():
+    """Returns the current sync status for compatibility."""
+    return {
+        "is_running": state.is_running,
+        "is_cancelled": state.is_cancelled,
+        "last_run": state.last_run,
+        "progress": state.progress,
+        "logs": state.logs[-100:] # Return last 100 logs
+    }
+
+@app.get("/api/ai-stats")
+async def get_ai_stats():
+    """Returns AI processing statistics."""
+    return db.get_ai_stats()
+
+@app.get("/api/llm-status")
+async def get_llm_status():
+    """Returns current LLM health status."""
+    return {
+        "status": state.llm_status,
+        "message": state.llm_message,
+        "model": state.llm_model
+    }
+
+
+@app.get("/api/emails/{message_id}/download")
+async def download_email(message_id: str):
+    """Downloads the raw .eml file for an email."""
+    email = db.get_email(message_id)
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    
+    file_path = email.get("file_path")
+    if not file_path:
+         raise HTTPException(status_code=404, detail="File path not recorded for this email")
+
+    try:
+        abs_path = resolve_path(file_path)
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Error resolving file path: {e}")
+
+    if not os.path.exists(abs_path):
+        raise HTTPException(status_code=404, detail="Email file not found on disk")
+        
+    return FileResponse(
+        path=abs_path, 
+        filename=os.path.basename(abs_path), 
+        media_type='message/rfc822'
+    )
 
 
 # Custom log handler for UI
@@ -110,6 +166,7 @@ def refresh_stats():
     state.total_archived = stats.get('total_archived', 0)
     state.classified = stats.get('classified', 0)
     state.extracted = stats.get('extracted', 0)
+    state.last_updated_db = stats.get('last_updated')
     state.categories = stats.get('categories', {})
     
     # Get AI stats
@@ -149,9 +206,9 @@ def check_llm_status():
         state.llm_message = str(e)
 
 
-# ============================================================================
+# ============================================================================ 
 # SYNC OPERATIONS
-# ============================================================================
+# ============================================================================ 
 
 async def run_sync_task(
     provider: str,
@@ -193,15 +250,21 @@ async def run_sync_task(
         
         logging.info("Synchronization completed successfully.")
         state.last_run = datetime.now().isoformat()
-        ui.notify('Sync completed successfully!', type='positive')
+        try:
+            ui.notify('Sync completed successfully!', type='positive')
+        except RuntimeError:
+            logging.warning("Skipped UI notification (client disconnected)")
     except Exception as e:
         logging.error(f"Synchronization failed: {e}")
-        ui.notify(f'Sync failed: {e}', type='negative')
+        try:
+            ui.notify(f'Sync failed: {e}', type='negative')
+        except RuntimeError:
+            logging.warning("Skipped failure notification (client disconnected)")
     finally:
         state.is_running = False
         state.progress = 100
         root_logger.removeHandler(ui_log_handler)
-        refresh_stats()
+        # refresh_stats() handled by auto-refresh timer
 
 
 def stop_sync():
@@ -212,9 +275,9 @@ def stop_sync():
         ui.notify('Stopping sync...', type='warning')
 
 
-# ============================================================================
+# ============================================================================ 
 # UI COMPONENTS
-# ============================================================================
+# ============================================================================ 
 
 def create_stat_card(title: str, value: int, icon: str, color: str = 'primary'):
     """Create a statistics card."""
@@ -230,46 +293,49 @@ def create_sync_button():
     with ui.card().classes('w-full p-6'):
         ui.label('Synchronization Engine').classes('text-lg font-bold mb-4')
         
-        with ui.row().classes('w-full gap-4 items-start'):
-            # Sync options (define first so they're available in on_sync_click)
-            with ui.column().classes('flex-1 gap-2'):
-                with ui.row().classes('gap-4'):
+        with ui.row().classes('w-full gap-8 items-start'):
+            # --- LEFT COLUMN: Configuration ---
+            with ui.column().classes('flex-1 gap-6'):
+                
+                # Row 1: Provider & Switches
+                with ui.row().classes('w-full items-center gap-6'):
                     sync_provider = ui.select(
                         ['gmail', 'm365'],
                         value='gmail',
                         label='Provider'
-                    ).classes('w-32')
-                    sync_incremental = ui.switch('Incremental', value=True)
-                
-                with ui.row().classes('gap-4'):
-                    sync_classify = ui.switch('AI Classify', value=True)
-                    sync_extract = ui.switch('Deep Extract', value=True)
-                
-                with ui.row().classes('gap-4'):
-                    sync_rename = ui.switch('Rename Files', value=True)
-                    sync_embed = ui.switch('Embed Metadata', value=True)
-                
-                with ui.row().classes('gap-4 w-full'):
+                    ).props('outlined dense options-dense').classes('w-40')
+                    
+                    with ui.row().classes('flex-1 gap-4 items-center'):
+                        sync_incremental = ui.switch('Incremental', value=True).props('dense color=blue')
+                        sync_classify = ui.switch('Classify', value=True).props('dense color=green')
+                        sync_extract = ui.switch('Extract', value=True).props('dense color=purple')
+                        sync_rename = ui.switch('Rename', value=True).props('dense color=orange')
+                        sync_embed = ui.switch('Embed', value=True).props('dense color=cyan')
+
+                # Row 2: Input Grid (2x2)
+                with ui.grid(columns=2).classes('w-full gap-4'):
                     sync_since = ui.input(
                         'Since Date',
                         value=datetime.now().strftime('%Y-%m-%d')
-                    ).classes('flex-1')
-                    sync_query = ui.input('Search Query', placeholder='e.g. from:invoice').classes('flex-1')
-                
-                # Advanced options
-                with ui.expansion('Advanced Options', icon='tune').classes('w-full'):
-                    with ui.column().classes('gap-2'):
-                        sync_after_id = ui.input(
-                            'After ID',
-                            placeholder='Fetch emails after this ID'
-                        ).classes('w-full')
-                        sync_specific_id = ui.input(
-                            'Specific ID',
-                            placeholder='Fetch only this specific email'
-                        ).classes('w-full')
+                    ).props('outlined dense type=date').classes('w-full')
+                    
+                    sync_query = ui.input(
+                        'Search Query',
+                        placeholder='e.g. from:invoice'
+                    ).props('outlined dense').classes('w-full')
+                    
+                    sync_after_id = ui.input(
+                        'After ID',
+                        placeholder='Fetch emails after this ID'
+                    ).props('outlined dense').classes('w-full')
+                    
+                    sync_specific_id = ui.input(
+                        'Specific ID',
+                        placeholder='Fetch only this specific email'
+                    ).props('outlined dense').classes('w-full')
             
-            # Big sync button
-            with ui.column().classes('items-center gap-4'):
+            # --- RIGHT COLUMN: Action Buttons ---
+            with ui.column().classes('items-center gap-4 min-w-[140px] pt-1'):
                 @ui.refreshable
                 def sync_button_display():
                     def on_sync_click():
@@ -293,7 +359,7 @@ def create_sync_button():
                     
                     btn_text = 'STOP' if state.is_running else 'SYNC'
                     btn_color = 'red' if state.is_running else 'primary'
-                    ui.button(btn_text, on_click=on_sync_click).classes(f'w-32 h-32 rounded-full bg-{btn_color}')
+                    ui.button(btn_text, on_click=on_sync_click).classes(f'w-32 h-32 rounded-full bg-{btn_color} text-xl font-bold shadow-lg')
                 
                 sync_button_display()
                 
@@ -314,7 +380,7 @@ def create_sync_button():
                             sync_button_display.refresh()
                             reanalyze_button.refresh()
                         
-                        ui.button('Re-analyze Local Archive', on_click=on_reanalyze).classes('text-xs')
+                        ui.button('Re-analyze Local Archive', on_click=on_reanalyze).props('flat dense size=sm').classes('text-gray-400 hover:text-white')
                 
                 reanalyze_button()
 
@@ -332,7 +398,7 @@ def create_log_console():
                 if not state.logs:
                     ui.label('System idle. Waiting for task initiation...').classes('text-gray-500 italic')
                 else:
-                    for log in state.logs[-50:]:  # Show last 50 logs
+                    for log in state.logs[-50:]:
                         color = 'text-red-400' if 'ERROR' in log else 'text-yellow-400' if 'WARNING' in log else 'text-gray-300'
                         ui.label(log).classes(f'{color} text-xs')
             
@@ -359,13 +425,18 @@ def create_email_table():
         page_size = 20
         search_query = {'value': ''}
         
-        # Store email data for access in button handlers
+        # Store email data for access in handlers
         email_data = {'emails': []}
         
         @ui.refreshable
         def email_table_display():
             # Calculate offset
             offset = (current_page['value'] - 1) * page_size
+            
+            # Get total count first
+            count = db.get_email_count(search_query['value'] if search_query['value'] else None)
+            total_pages = (count + page_size - 1) // page_size
+            if total_pages < 1: total_pages = 1
             
             # Get emails with search
             emails = db.get_emails(
@@ -374,88 +445,73 @@ def create_email_table():
                 search_query=search_query['value'] if search_query['value'] else None
             )
             
-            # Store emails for button handlers
+            # Store emails for handlers (though we use direct lambda binding now)
             email_data['emails'] = {email.get('message_id'): email for email in emails}
             
-            columns = [
-                {'name': 'subject', 'label': 'Subject', 'field': 'subject', 'align': 'left', 'sortable': True},
-                {'name': 'sender', 'label': 'From', 'field': 'sender', 'align': 'left', 'sortable': True},
-                {'name': 'received_at', 'label': 'Date', 'field': 'received_at', 'align': 'left', 'sortable': True},
-                {'name': 'category', 'label': 'Category', 'field': 'category', 'align': 'left'},
-            ]
-            
-            rows = []
-            for email in emails:
-                category = ''
-                if email.get('classification'):
-                    category = email['classification'].get('category', '')
-                rows.append({
-                    'message_id': email.get('message_id', ''),
-                    'subject': email.get('subject', 'No Subject')[:60],
-                    'sender': email.get('sender', 'Unknown')[:40],
-                    'received_at': email.get('received_at', '')[:16] if email.get('received_at') else '',
-                    'category': category.upper() if category else 'UNPROCESSED',
-                })
-            
-            # Create table with custom slot for actions
-            with ui.table(
-                columns=columns,
-                rows=rows,
-                row_key='message_id',
-                pagination=page_size
-            ).classes('w-full cursor-pointer') as table:
-                table.props('dense flat')
+            # Custom List View
+            # Header
+            with ui.row().classes('w-full px-4 py-2 border-b border-white/10 text-xs font-bold text-gray-400 uppercase tracking-wider'):
+                ui.label('Subject').classes('flex-1')
+                ui.label('From').classes('w-1/4')
+                ui.label('Date').classes('w-32')
+                ui.label('Category').classes('w-24 text-right pr-4')
+
+            # Rows Container
+            with ui.column().classes('w-full gap-0 min-h-[200px]'):
+                if not emails:
+                    ui.label('No emails found.').classes('w-full text-center text-gray-500 py-8 italic')
                 
-                # Add custom slot for each row to make it clickable
-                table.add_slot('body', r'''
-                    <q-tr :props="props" @click="() => $parent.$emit('rowClick', props.row)" class="cursor-pointer hover:bg-white/5">
-                        <q-td v-for="col in props.cols" :key="col.name" :props="props">
-                            {{ col.value }}
-                        </q-td>
-                    </q-tr>
-                ''')
+                for email in emails:
+                    # Prepare display data
+                    subject = email.get('subject', 'No Subject') or 'No Subject'
+                    subject = subject[:60] + '...' if len(subject) > 60 else subject
+                    
+                    sender = email.get('sender', 'Unknown') or 'Unknown'
+                    sender = sender[:30] + '...' if len(sender) > 30 else sender
+                    
+                    date_str = email.get('received_at', '')[:10] if email.get('received_at') else ''
+                    
+                    category = 'UNPROCESSED'
+                    if email.get('classification'):
+                        category = email['classification'].get('category', 'UNPROCESSED').upper()
+                    
+                    # Row Item
+                    with ui.row().classes('w-full px-4 py-3 border-b border-white/5 items-center hover:bg-white/5 transition-colors group'):
+                        # Subject (Clickable)
+                        ui.label(subject).classes('flex-1 font-medium truncate cursor-pointer hover:text-blue-400 transition-colors').on('click', lambda e=email: show_email_detail(e))
+                        
+                        # Sender
+                        ui.label(sender).classes('w-1/4 text-gray-400 truncate text-xs')
+                        
+                        # Date
+                        ui.label(date_str).classes('w-32 text-gray-500 text-xs')
+                        
+                        # Category Badge
+                        with ui.element('div').classes('w-24 flex justify-end'):
+                            color = 'blue' if category != 'UNPROCESSED' else 'gray'
+                            ui.label(category).classes(f'text-[10px] px-2 py-0.5 bg-{color}-500/10 text-{color}-400 rounded-full border border-{color}-500/20')
+
+            # Pagination Controls
+            with ui.row().classes('w-full justify-between items-center mt-4 px-2'):
+                # Info label
+                start_idx = offset + 1
+                end_idx = min(offset + len(emails), count)
+                if count == 0:
+                    ui.label('0 items').classes('text-xs text-gray-500')
+                else:
+                    ui.label(f'Showing {start_idx}-{end_idx} of {count}').classes('text-xs text-gray-500')
                 
-                # Handle row click
-                def handle_row_click(e):
-                    msg_id = e.args['message_id']
-                    email = email_data['emails'].get(msg_id)
-                    if email:
-                        show_email_detail(email)
-                
-                table.on('rowClick', handle_row_click)
+                # Pagination Component
+                if total_pages > 1:
+                    def on_page_change(e):
+                        current_page['value'] = e.value
+                        email_table_display.refresh()
+                        
+                    ui.pagination(min=1, max=total_pages, value=current_page['value']) \
+                        .props('max-pages=5 boundary-numbers') \
+                        .on_value_change(on_page_change)
         
         email_table_display()
-        
-        # Pagination controls
-        with ui.row().classes('w-full justify-between items-center mt-4'):
-            def prev_page():
-                if current_page['value'] > 1:
-                    current_page['value'] -= 1
-                    email_table_display.refresh()
-            
-            def next_page():
-                current_page['value'] += 1
-                email_table_display.refresh()
-            
-            def jump_to_page():
-                try:
-                    page = int(page_jump.value)
-                    if page > 0:
-                        current_page['value'] = page
-                        email_table_display.refresh()
-                except ValueError:
-                    ui.notify('Invalid page number', type='negative')
-            
-            ui.button('Previous', on_click=prev_page)
-            
-            with ui.row().classes('gap-2 items-center'):
-                ui.label('Page')
-                ui.label(str(current_page['value'])).classes('font-bold')
-                ui.label('Jump to:')
-                page_jump = ui.input(placeholder='#').classes('w-16')
-                ui.button('Go', on_click=jump_to_page)
-            
-            ui.button('Next', on_click=next_page)
         
         # Search handler
         def on_search(e):
@@ -480,9 +536,14 @@ def show_email_detail(email: Dict[str, Any]):
                     # Download button in header
                     msg_id = email.get('message_id', '')
                     if msg_id:
-                        download_url = f'/api/emails/{msg_id}/download'
-                        with ui.link(download_url, new_tab=False).classes('flex items-center gap-1 text-blue-400 hover:text-blue-300 ml-4 pl-4 border-l border-white/10'):
-                            ui.html('<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>')
+                        def download_eml():
+                            # Encode ID to handle special characters (like <, >, @) in URL
+                            safe_id = quote(msg_id, safe='')
+                            ui.download(f'/api/emails/{safe_id}/download')
+                            
+                        with ui.button(on_click=download_eml).props('flat no-caps dense').classes('flex items-center gap-1 text-blue-400 hover:text-blue-300 ml-4 pl-4 border-l border-white/10'):
+                            # Explicitly allow SVG content by disabling sanitization for this trusted icon
+                            ui.html('<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>', sanitize=False)
                             ui.label('Download EML').classes('text-xs font-bold')
             
             ui.button(icon='close', on_click=dialog.close).props('flat round').classes('text-gray-400')
@@ -568,7 +629,7 @@ def show_email_detail(email: Dict[str, Any]):
 
 
 def create_settings_page():
-    """Create the settings page."""
+    """Create the settings page with a modern 2-column layout."""
     config = load_config(CONFIG_PATH)
     
     # Ensure nested dicts exist
@@ -582,149 +643,8 @@ def create_settings_page():
         config['webhook'] = {'enabled': False, 'url': '', 'headers': {'Authorization': ''}}
     if 'headers' not in config['webhook']:
         config['webhook']['headers'] = {'Authorization': ''}
-    
-    with ui.card().classes('w-full'):
-        ui.label('System Settings').classes('text-lg font-bold mb-4')
-        
-        download_dir = ui.input(
-            'Download Directory',
-            value=config['app'].get('download_dir', 'downloads/')
-        ).classes('w-full')
-    
-    with ui.card().classes('w-full'):
-        ui.label('Intelligence Hub').classes('text-lg font-bold mb-4')
-        
-        # Classification settings
-        with ui.expansion('AI Classification', icon='psychology').classes('w-full'):
-            class_enabled = ui.switch(
-                'Enable Classification',
-                value=config['classification'].get('enabled', False)
-            )
-            
-            with ui.row().classes('gap-2 w-full'):
-                ui.button('OpenAI', on_click=lambda: set_preset('openai'))
-                ui.button('Ollama', on_click=lambda: set_preset('ollama'))
-                ui.button('LM Studio', on_click=lambda: set_preset('lm_studio'))
-            
-            llm_model = ui.input(
-                'Model',
-                value=config['classification'].get('model', 'gpt-4o-mini')
-            ).classes('w-full')
-            
-            llm_api_key = ui.input(
-                'API Key',
-                value=config['classification'].get('api_key', ''),
-                password=True
-            ).classes('w-full')
-            
-            llm_base_url = ui.input(
-                'Base URL',
-                value=config['classification'].get('base_url', ''),
-                placeholder='Leave empty for OpenAI default'
-            ).classes('w-full')
-            
-            def set_preset(preset: str):
-                if preset == 'openai':
-                    llm_base_url.value = ''
-                    llm_model.value = 'gpt-4o-mini'
-                elif preset == 'ollama':
-                    llm_base_url.value = 'http://localhost:11434/v1'
-                    llm_model.value = 'llama3'
-                elif preset == 'lm_studio':
-                    llm_base_url.value = 'http://localhost:1234/v1'
-                    llm_model.value = 'model-identifier'
-        
-        # Extraction settings
-        with ui.expansion('Data Extraction', icon='analytics').classes('w-full'):
-            extract_enabled = ui.switch(
-                'Enable Extraction',
-                value=config['extraction'].get('enabled', False)
-            )
-    
-    # Provider Secrets
-    with ui.card().classes('w-full'):
-        ui.label('Provider Secrets').classes('text-lg font-bold mb-4')
-        
-        with ui.expansion('Gmail Credentials', icon='mail').classes('w-full'):
-            ui.label('Paste your credentials.json content here').classes('text-sm text-gray-400 mb-2')
-            gmail_secret = ui.textarea(
-                placeholder='{"installed": {"client_id": "...", ...}}'
-            ).classes('w-full font-mono text-xs').props('rows=6')
-            
-            async def save_gmail_secret():
-                try:
-                    if not gmail_secret.value:
-                        ui.notify('Please enter credentials', type='warning')
-                        return
-                    
-                    # Validate JSON
-                    json.loads(gmail_secret.value)
-                    
-                    # Save to auth directory
-                    auth_dir = get_auth_dir()
-                    auth_dir.mkdir(parents=True, exist_ok=True)
-                    with open(auth_dir / 'client_secret.json', 'w') as f:
-                        f.write(gmail_secret.value)
-                    
-                    ui.notify('Gmail credentials saved!', type='positive')
-                    gmail_secret.value = ''
-                except json.JSONDecodeError:
-                    ui.notify('Invalid JSON format', type='negative')
-                except Exception as e:
-                    ui.notify(f'Error: {e}', type='negative')
-            
-            ui.button('Save Gmail Credentials', on_click=save_gmail_secret).classes('mt-2')
-        
-        with ui.expansion('Microsoft 365 Config', icon='cloud').classes('w-full'):
-            ui.label('Paste your M365 config.json content here').classes('text-sm text-gray-400 mb-2')
-            m365_secret = ui.textarea(
-                placeholder='{"client_id": "...", "tenant_id": "...", ...}'
-            ).classes('w-full font-mono text-xs').props('rows=6')
-            
-            async def save_m365_secret():
-                try:
-                    if not m365_secret.value:
-                        ui.notify('Please enter config', type='warning')
-                        return
-                    
-                    # Validate JSON
-                    json.loads(m365_secret.value)
-                    
-                    # Save to config directory
-                    config_dir = get_config_path().parent
-                    config_dir.mkdir(parents=True, exist_ok=True)
-                    with open(config_dir / 'client_secret.json', 'w') as f:
-                        f.write(m365_secret.value)
-                    
-                    ui.notify('M365 config saved!', type='positive')
-                    m365_secret.value = ''
-                except json.JSONDecodeError:
-                    ui.notify('Invalid JSON format', type='negative')
-                except Exception as e:
-                    ui.notify(f'Error: {e}', type='negative')
-            
-            ui.button('Save M365 Config', on_click=save_m365_secret).classes('mt-2')
-    
-    with ui.card().classes('w-full'):
-        ui.label('Webhook Notification').classes('text-lg font-bold mb-4')
-        
-        webhook_enabled = ui.switch(
-            'Enable Webhooks',
-            value=config['webhook'].get('enabled', False)
-        )
-        
-        webhook_url = ui.input(
-            'Endpoint URL',
-            value=config['webhook'].get('url', '')
-        ).classes('w-full')
-        
-        webhook_secret = ui.input(
-            'Authorization Secret',
-            value=config['webhook']['headers'].get('Authorization', ''),
-            password=True
-        ).classes('w-full')
-    
-    # Save button
+
+    # --- SAVE HANDLER ---
     def save_settings():
         config['app']['download_dir'] = download_dir.value
         config['classification']['enabled'] = class_enabled.value
@@ -738,142 +658,230 @@ def create_settings_page():
         
         save_config(CONFIG_PATH, config)
         ui.notify('Settings saved successfully!', type='positive')
-    
-    with ui.row().classes('w-full justify-end gap-2 mt-4'):
-        ui.button('Discard', on_click=lambda: ui.navigate.reload())
-        ui.button('Save Changes', on_click=save_settings).classes('bg-blue-600')
 
-
-def create_auth_section():
-    """Create authentication section."""
-    @ui.refreshable
-    def auth_cards():
-        with ui.card().classes('w-full'):
-            ui.label('Provider Connections').classes('text-lg font-bold mb-4')
+    # --- UI LAYOUT ---
+    with ui.row().classes('w-full gap-6 items-start'):
+        
+        # === LEFT COLUMN: App & Intelligence ===
+        with ui.column().classes('flex-1 gap-6'):
             
-            with ui.row().classes('gap-4'):
-                # Gmail
-                with ui.card().classes('flex-1'):
-                    with ui.row().classes('justify-between items-center'):
-                        ui.label('Gmail').classes('font-bold')
-                        gmail_status = '✅ Connected' if state.gmail_connected else '❌ Disconnected'
-                        ui.label(gmail_status).classes('text-sm')
+            # 1. System Settings
+            with ui.card().classes('w-full p-4'):
+                ui.label('System Preferences').classes('text-lg font-bold mb-2')
+                download_dir = ui.input(
+                    'Download Directory',
+                    value=config['app'].get('download_dir', 'downloads/')
+                ).props('outlined dense').classes('w-full')
+
+            # 2. Intelligence Hub
+            with ui.card().classes('w-full p-4'):
+                with ui.row().classes('w-full justify-between items-center mb-4'):
+                    ui.label('Intelligence Hub').classes('text-lg font-bold')
+                    ui.icon('psychology', size='md').classes('text-purple-400')
+                
+                # Toggles
+                with ui.row().classes('w-full gap-4 mb-4'):
+                    class_enabled = ui.switch('Classification', value=config['classification'].get('enabled', False)).props('dense color=blue')
+                    extract_enabled = ui.switch('Extraction', value=config['extraction'].get('enabled', False)).props('dense color=purple')
+                
+                ui.separator().classes('mb-4')
+                
+                # LLM Config
+                ui.label('LLM Configuration').classes('text-sm font-bold text-gray-400 mb-2')
+                
+                # Presets
+                with ui.row().classes('gap-2 mb-3'):
+                    def set_preset(preset: str):
+                        if preset == 'openai':
+                            llm_base_url.value = ''
+                            llm_model.value = 'gpt-4o-mini'
+                        elif preset == 'ollama':
+                            llm_base_url.value = 'http://localhost:11434/v1'
+                            llm_model.value = 'llama3'
+                        elif preset == 'lm_studio':
+                            llm_base_url.value = 'http://localhost:1234/v1'
+                            llm_model.value = 'model-identifier'
                     
+                    ui.button('OpenAI', on_click=lambda: set_preset('openai')).props('flat dense size=sm').classes('bg-green-500/10 text-green-400')
+                    ui.button('Ollama', on_click=lambda: set_preset('ollama')).props('flat dense size=sm').classes('bg-orange-500/10 text-orange-400')
+                    ui.button('LM Studio', on_click=lambda: set_preset('lm_studio')).props('flat dense size=sm').classes('bg-blue-500/10 text-blue-400')
+
+                # Fields
+                llm_model = ui.input('Model Name', value=config['classification'].get('model', 'gpt-4o-mini')).props('outlined dense').classes('w-full mb-2')
+                llm_api_key = ui.input('API Key', value=config['classification'].get('api_key', ''), password=True).props('outlined dense').classes('w-full mb-2')
+                llm_base_url = ui.input('Base URL', value=config['classification'].get('base_url', ''), placeholder='Optional (for local LLMs)').props('outlined dense').classes('w-full')
+
+            # 3. Webhooks
+            with ui.card().classes('w-full p-4'):
+                ui.label('Webhook Notifications').classes('text-lg font-bold mb-4')
+                
+                webhook_enabled = ui.switch('Enable Webhooks', value=config['webhook'].get('enabled', False)).props('dense color=green').classes('mb-2')
+                webhook_url = ui.input('Endpoint URL', value=config['webhook'].get('url', '')).props('outlined dense').classes('w-full mb-2')
+                webhook_secret = ui.input('Auth Secret', value=config['webhook']['headers'].get('Authorization', ''), password=True).props('outlined dense').classes('w-full')
+
+            # Save Actions
+            with ui.row().classes('w-full justify-end gap-4 mt-2'):
+                ui.button('Discard Changes', on_click=lambda: ui.navigate.reload()).props('flat text-color=gray')
+                ui.button('Save Settings', on_click=save_settings).props('unelevated color=primary')
+
+
+        # === RIGHT COLUMN: Integrations & Danger ===
+        with ui.column().classes('flex-1 gap-6'):
+            
+            ui.label('Provider Integrations').classes('text-xl font-bold text-gray-200 px-1')
+
+            # Provider Cards Logic
+            @ui.refreshable
+            def provider_cards():
+                # --- GMAIL ---
+                with ui.card().classes('w-full p-4 border-l-4 border-l-red-500'):
+                    with ui.row().classes('w-full justify-between items-center mb-2'):
+                        with ui.row().classes('items-center gap-2'):
+                            ui.icon('mail', size='sm').classes('text-red-500')
+                            ui.label('Gmail').classes('text-lg font-bold')
+                        
+                        status = 'Connected' if state.gmail_connected else 'Disconnected'
+                        color = 'green' if state.gmail_connected else 'gray'
+                        ui.badge(status, color=color).props('outline')
+
+                    # Connect Action
                     async def connect_gmail():
                         try:
-                            config = load_config(CONFIG_PATH)
+                            # Re-load config to ensure we have latest secrets
+                            curr_config = load_config(CONFIG_PATH)
                             from email_archiver.core.gmail_handler import GmailHandler
-                            handler = GmailHandler(config)
+                            handler = GmailHandler(curr_config)
                             url = handler.get_auth_url()
                             
                             with ui.dialog() as dialog, ui.card():
                                 ui.label('Connect Gmail').classes('text-lg font-bold')
                                 ui.label('Open this URL to authorize:').classes('text-sm')
                                 ui.link(url, url, new_tab=True).classes('text-blue-400 break-all')
-                                
-                                code_input = ui.input('Paste authorization code here').classes('w-full')
-                                
+                                code_input = ui.input('Paste code here').classes('w-full')
                                 async def submit_code():
                                     try:
                                         handler.submit_code(code_input.value)
                                         check_auth_status()
                                         ui.notify('Gmail connected!', type='positive')
                                         dialog.close()
-                                        auth_cards.refresh()
+                                        provider_cards.refresh()
                                     except Exception as e:
                                         ui.notify(f'Error: {e}', type='negative')
-                                
-                                with ui.row().classes('justify-end gap-2'):
-                                    ui.button('Cancel', on_click=dialog.close)
-                                    ui.button('Submit', on_click=submit_code)
-                            
+                                ui.button('Submit', on_click=submit_code)
                             dialog.open()
                         except Exception as e:
-                            ui.notify(f'Error: {e}', type='negative')
-                    
-                    ui.button('Connect', on_click=connect_gmail)
-                
-                # M365
-                with ui.card().classes('flex-1'):
-                    with ui.row().classes('justify-between items-center'):
-                        ui.label('Microsoft 365').classes('font-bold')
-                        m365_status = '✅ Connected' if state.m365_connected else '❌ Disconnected'
-                        ui.label(m365_status).classes('text-sm')
-                    
+                            ui.notify(f'Error: {e} - Did you save credentials?', type='negative')
+
+                    ui.button('Connect / Re-connect', on_click=connect_gmail, icon='link').props('outline size=sm color=red').classes('w-full mb-4')
+
+                    # Credentials Accordion
+                    with ui.expansion('Configure Credentials', icon='key').classes('w-full text-sm bg-gray-900/30 rounded'):
+                        ui.label('Paste content of credentials.json:').classes('text-xs text-gray-500 mb-1 p-2')
+                        gmail_secret = ui.textarea(placeholder='{"installed": ...}').props('filled dense input-style="font-family: monospace; font-size: 10px"').classes('w-full')
+                        
+                        async def save_gmail_secret():
+                            try:
+                                if not gmail_secret.value: return
+                                json.loads(gmail_secret.value) # Validate
+                                auth_dir = get_auth_dir()
+                                auth_dir.mkdir(parents=True, exist_ok=True)
+                                with open(auth_dir / 'client_secret.json', 'w') as f:
+                                    f.write(gmail_secret.value)
+                                ui.notify('Gmail credentials saved!', type='positive')
+                                gmail_secret.value = ''
+                            except Exception as e:
+                                ui.notify(f'Error: {e}', type='negative')
+                        
+                        ui.button('Save JSON', on_click=save_gmail_secret).props('flat dense size=sm').classes('w-full mt-1')
+
+                # --- MICROSOFT 365 ---
+                with ui.card().classes('w-full p-4 border-l-4 border-l-blue-500'):
+                    with ui.row().classes('w-full justify-between items-center mb-2'):
+                        with ui.row().classes('items-center gap-2'):
+                            ui.icon('cloud', size='sm').classes('text-blue-500')
+                            ui.label('Microsoft 365').classes('text-lg font-bold')
+                        
+                        status = 'Connected' if state.m365_connected else 'Disconnected'
+                        color = 'green' if state.m365_connected else 'gray'
+                        ui.badge(status, color=color).props('outline')
+
+                    # Connect Action
                     async def connect_m365():
                         try:
-                            config = load_config(CONFIG_PATH)
+                            curr_config = load_config(CONFIG_PATH)
                             from email_archiver.core.graph_handler import GraphHandler
-                            handler = GraphHandler(config)
+                            handler = GraphHandler(curr_config)
                             flow = handler.initiate_device_flow()
                             
                             with ui.dialog() as dialog, ui.card():
                                 ui.label('Connect Microsoft 365').classes('text-lg font-bold')
-                                ui.label(flow.get('message', '')).classes('text-sm')
+                                ui.label(flow.get('message', ''))
                                 ui.label(flow.get('user_code', '')).classes('text-3xl font-mono font-bold text-blue-400')
-                                
                                 async def complete_flow():
-                                    try:
-                                        success = await asyncio.to_thread(handler.complete_device_flow, flow)
-                                        if success:
-                                            check_auth_status()
-                                            ui.notify('M365 connected!', type='positive')
-                                            dialog.close()
-                                            auth_cards.refresh()
-                                        else:
-                                            ui.notify('Authentication failed', type='negative')
-                                    except Exception as e:
-                                        ui.notify(f'Error: {e}', type='negative')
-                                
-                                with ui.row().classes('justify-end gap-2'):
-                                    ui.button('Cancel', on_click=dialog.close)
-                                    ui.button('Complete', on_click=complete_flow)
-                            
+                                    success = await asyncio.to_thread(handler.complete_device_flow, flow)
+                                    if success:
+                                        check_auth_status()
+                                        ui.notify('M365 connected!', type='positive')
+                                        dialog.close()
+                                        provider_cards.refresh()
+                                    else:
+                                        ui.notify('Authentication failed', type='negative')
+                                ui.button('I have authenticated', on_click=complete_flow)
                             dialog.open()
                         except Exception as e:
-                            ui.notify(f'Error: {e}', type='negative')
-                    
-                    ui.button('Connect', on_click=connect_m365)
-    
-    auth_cards()
+                            ui.notify(f'Error: {e} - Did you save config?', type='negative')
 
+                    ui.button('Connect / Re-connect', on_click=connect_m365, icon='link').props('outline size=sm color=blue').classes('w-full mb-4')
 
-def create_danger_zone():
-    """Create danger zone section."""
-    with ui.card().classes('w-full border-red-500 border'):
-        ui.label('Danger Zone').classes('text-lg font-bold text-red-400 mb-4')
-        
-        with ui.row().classes('justify-between items-center'):
-            with ui.column():
-                ui.label('Factory Reset').classes('font-bold')
-                ui.label('Permanently delete all data including database, logs, and downloads.').classes('text-sm text-gray-400')
-            
-            def confirm_reset():
-                with ui.dialog() as dialog, ui.card():
-                    ui.label('⚠️ Confirm Factory Reset').classes('text-xl font-bold text-red-400')
-                    ui.label('This will PERMANENTLY DELETE all your data. This cannot be undone.').classes('text-sm')
-                    
-                    with ui.row().classes('justify-end gap-2 mt-4'):
-                        ui.button('Cancel', on_click=dialog.close)
+                    # Config Accordion
+                    with ui.expansion('Configure Client', icon='key').classes('w-full text-sm bg-gray-900/30 rounded'):
+                        ui.label('Paste content of config.json:').classes('text-xs text-gray-500 mb-1 p-2')
+                        m365_secret = ui.textarea(placeholder='{"client_id": ...}').props('filled dense input-style="font-family: monospace; font-size: 10px"').classes('w-full')
                         
-                        async def do_reset():
-                            from email_archiver.core.utils import perform_reset
-                            perform_reset()
-                            ui.notify('Factory reset complete. Restarting...', type='warning')
-                            dialog.close()
-                            await asyncio.sleep(1)
-                            app.shutdown()
+                        async def save_m365_secret():
+                            try:
+                                if not m365_secret.value: return
+                                json.loads(m365_secret.value) # Validate
+                                config_dir = get_config_path().parent
+                                config_dir.mkdir(parents=True, exist_ok=True)
+                                with open(config_dir / 'client_secret.json', 'w') as f:
+                                    f.write(m365_secret.value)
+                                ui.notify('M365 config saved!', type='positive')
+                                m365_secret.value = ''
+                            except Exception as e:
+                                ui.notify(f'Error: {e}', type='negative')
                         
-                        ui.button('Confirm Reset', on_click=do_reset).classes('bg-red-600')
+                        ui.button('Save JSON', on_click=save_m365_secret).props('flat dense size=sm').classes('w-full mt-1')
+
+            provider_cards()
+
+            # 4. Danger Zone
+            with ui.card().classes('w-full p-4 border border-red-900/50 bg-red-900/10'):
+                ui.label('Danger Zone').classes('text-lg font-bold text-red-400 mb-2')
+                ui.label('Permanently delete all data including database, logs, and downloads.').classes('text-xs text-gray-400 mb-4')
                 
-                dialog.open()
-            
-            ui.button('Factory Reset', on_click=confirm_reset).classes('bg-red-600/20 text-red-400')
+                def confirm_reset():
+                    with ui.dialog() as dialog, ui.card():
+                        ui.label('⚠️ Confirm Factory Reset').classes('text-xl font-bold text-red-400')
+                        ui.label('This will PERMANENTLY DELETE all your data. This cannot be undone.').classes('text-sm')
+                        with ui.row().classes('justify-end gap-2 mt-4'):
+                            ui.button('Cancel', on_click=dialog.close)
+                            async def do_reset():
+                                from email_archiver.core.utils import perform_reset
+                                perform_reset()
+                                ui.notify('Factory reset complete. Restarting...', type='warning')
+                                dialog.close()
+                                await asyncio.sleep(1)
+                                app.shutdown()
+                            ui.button('Confirm Reset', on_click=do_reset).classes('bg-red-600')
+                    dialog.open()
+                
+                ui.button('Factory Reset', on_click=confirm_reset, icon='delete_forever').props('unelevated color=red').classes('w-full')
 
 
-# ============================================================================
+# ============================================================================ 
 # MAIN PAGE LAYOUT
-# ============================================================================
+# ============================================================================ 
 
 @ui.page('/')
 def main_page():
@@ -900,14 +908,21 @@ def main_page():
     
     # Header
     with ui.header().classes('bg-transparent border-b border-white/10'):
-        with ui.row().classes('w-full items-center justify-between px-4'):
+        with ui.row().classes('w-full items-center justify-between px-4 py-1'):
+            # 1. Logo & Title
             with ui.row().classes('items-center gap-4'):
                 ui.label('E').classes('w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 font-bold')
                 with ui.column().classes('gap-0'):
                     ui.label('Archive Intelligence').classes('text-lg font-bold')
                     ui.label(f'Dashboard v{__version__}').classes('text-xs text-gray-400')
             
-            # Status indicator
+            # 2. Navigation Tabs (Moved to Header)
+            with ui.tabs().classes('bg-transparent text-gray-400') \
+                .props('indicator-color="blue-400" active-color="blue-400" dense') as tabs:
+                dashboard_tab = ui.tab('Dashboard', icon='dashboard')
+                settings_tab = ui.tab('Settings', icon='settings')
+
+            # 3. Status indicator
             @ui.refreshable
             def status_indicator():
                 with ui.row().classes('items-center gap-2 px-4 py-2 bg-white/5 rounded-xl'):
@@ -920,12 +935,8 @@ def main_page():
             
             status_indicator()
     
-    # Main content with tabs
-    with ui.tabs().classes('w-full') as tabs:
-        dashboard_tab = ui.tab('Dashboard', icon='dashboard')
-        settings_tab = ui.tab('Settings', icon='settings')
-    
-    with ui.tab_panels(tabs, value=dashboard_tab).classes('w-full flex-1'):
+    # Main content panels
+    with ui.tab_panels(tabs, value=dashboard_tab).classes('w-full flex-1 bg-transparent'):
         # Dashboard Panel
         with ui.tab_panel(dashboard_tab).classes('p-4'):
             # Welcome wizard container
@@ -948,6 +959,19 @@ def main_page():
                     with ui.card().classes('flex-1'):
                         ui.label('TOTAL ARCHIVED').classes('text-xs text-gray-400 uppercase')
                         ui.label(f'{state.total_archived:,}').classes('text-3xl font-bold')
+                        
+                        # Last updated timestamp
+                        last_ts = state.last_updated_db or state.last_run
+                        ts_display = "Never"
+                        if last_ts:
+                            try:
+                                # Handle ISO format
+                                dt = datetime.fromisoformat(last_ts)
+                                ts_display = dt.strftime('%Y-%m-%d %H:%M')
+                            except:
+                                ts_display = str(last_ts)
+                        
+                        ui.label(f'Updated: {ts_display}').classes('text-xs text-gray-500')
                     
                     with ui.card().classes('flex-1'):
                         ui.label('AI CLASSIFIED').classes('text-xs text-gray-400 uppercase')
@@ -992,10 +1016,6 @@ def main_page():
         # Settings Panel
         with ui.tab_panel(settings_tab).classes('p-4'):
             create_settings_page()
-            ui.separator().classes('my-4')
-            create_auth_section()
-            ui.separator().classes('my-4')
-            create_danger_zone()
     
     # Auto-refresh timer
     def auto_refresh():
@@ -1009,9 +1029,9 @@ def main_page():
     ui.timer(3.0, auto_refresh)
 
 
-# ============================================================================
+# ============================================================================ 
 # SERVER STARTUP
-# ============================================================================
+# ============================================================================ 
 
 def start_nicegui_server(host: str = "127.0.0.1", port: int = 8000, open_browser: bool = False):
     """Start the NiceGUI server."""

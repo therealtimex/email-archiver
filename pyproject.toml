@@ -38,7 +38,7 @@ dependencies = [
     "uvicorn",
     "jinja2",
     "python-multipart",
-    "nicegui>=2.0.0"
+    "nicegui>=3.4.1"
 ]
 
 

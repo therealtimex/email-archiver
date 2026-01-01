@@ -307,7 +307,7 @@ def main():
         return
 
     # Handle UI early
-    if args.ui:
+    if args.ui or args.ui_legacy:
         if args.ui_legacy:
             # Use legacy Alpine.js UI
             from email_archiver.server.app import start_server
@@ -319,7 +319,7 @@ def main():
         return
 
     if not args.provider:
-        parser.error("--provider is required unless using --ui")
+        parser.error("--provider is required unless using --ui or --ui-legacy")
     
     config = load_config(CONFIG_PATH)
     checkpoint = load_checkpoint(CHECKPOINT_PATH)
