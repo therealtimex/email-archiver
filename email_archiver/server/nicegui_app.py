@@ -878,37 +878,195 @@ def main_page():
     # Dark theme
     ui.dark_mode().enable()
     
-    # Custom CSS
+    # Tailwind CSS + Custom Styling
     ui.add_head_html('''
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        dark: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Consolas', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .nicegui-content { background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%); min-height: 100vh; }
-        .q-card { background: rgba(255, 255, 255, 0.05) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .q-table { background: transparent !important; }
-        .q-table__card { background: transparent !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        body { 
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* Glassmorphism effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Custom gradient background */
+        .nicegui-content { 
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+        }
+        
+        /* Quasar component overrides for dark theme */
+        .q-card { 
+            background: rgba(255, 255, 255, 0.05) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem !important;
+        }
+        
+        .q-table { 
+            background: transparent !important;
+            color: #e2e8f0 !important;
+        }
+        
+        .q-table__card { 
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        
+        .q-table thead tr, .q-table tbody td {
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        
+        .q-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05) !important;
+        }
+        
+        /* Input styling */
+        .q-field__control {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-radius: 0.5rem !important;
+        }
+        
+        .q-field__control:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+        }
+        
+        /* Button styling */
+        .q-btn {
+            border-radius: 0.5rem !important;
+            text-transform: none !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Dialog styling */
+        .q-dialog__backdrop {
+            backdrop-filter: blur(4px);
+        }
+        
+        /* Smooth transitions */
+        * {
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+        
+        /* Glow effects */
+        .glow-blue {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .glow-purple {
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+        }
+        
+        .glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+        }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     ''')
     
     # Header
-    with ui.header().classes('bg-transparent border-b border-white/10'):
-        with ui.row().classes('w-full items-center justify-between px-4'):
+    with ui.header().classes('glass border-b border-white/10 backdrop-blur-xl'):
+        with ui.row().classes('w-full items-center justify-between px-6 py-2'):
             with ui.row().classes('items-center gap-4'):
-                ui.label('E').classes('w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 font-bold')
+                ui.label('E').classes('w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300')
                 with ui.column().classes('gap-0'):
-                    ui.label('Archive Intelligence').classes('text-lg font-bold')
-                    ui.label(f'Dashboard v{__version__}').classes('text-xs text-gray-400')
+                    ui.label('Archive Intelligence').classes('text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent')
+                    ui.label(f'Dashboard v{__version__}').classes('text-xs text-gray-500 font-medium tracking-wide')
             
             # Status indicator
             @ui.refreshable
             def status_indicator():
-                with ui.row().classes('items-center gap-2 px-4 py-2 bg-white/5 rounded-xl'):
-                    if state.is_running:
-                        ui.element('div').classes('w-2 h-2 rounded-full bg-green-400 animate-pulse')
-                        ui.label('SYNC ACTIVE').classes('text-xs font-bold uppercase text-green-400')
-                    else:
-                        ui.element('div').classes('w-2 h-2 rounded-full bg-gray-500')
-                        ui.label('READY').classes('text-xs font-bold uppercase text-gray-400')
+                if state.is_running:
+                    with ui.row().classes('items-center gap-3 px-4 py-2 glass rounded-xl border border-green-500/30 bg-green-500/10 animate-pulse-slow'):
+                        ui.element('div').classes('w-2.5 h-2.5 rounded-full bg-green-400 shadow-lg shadow-green-400/50')
+                        ui.label('SYNC ACTIVE').classes('text-xs font-bold uppercase text-green-400 tracking-wider')
+                else:
+                    with ui.row().classes('items-center gap-3 px-4 py-2 glass rounded-xl border border-gray-500/20'):
+                        ui.element('div').classes('w-2.5 h-2.5 rounded-full bg-gray-500')
+                        ui.label('READY').classes('text-xs font-bold uppercase text-gray-400 tracking-wider')
             
             status_indicator()
     
@@ -919,51 +1077,70 @@ def main_page():
     
     with ui.tab_panels(tabs, value=dashboard_tab).classes('w-full flex-1'):
         # Dashboard Panel
-        with ui.tab_panel(dashboard_tab).classes('p-4'):
+        with ui.tab_panel(dashboard_tab).classes('p-6 space-y-6'):
             # Welcome wizard container
-            welcome_card = ui.card().classes('w-full bg-blue-900/20 border-blue-500/20 mb-4')
+            welcome_card = ui.card().classes('w-full glass border-2 border-blue-500/30 bg-gradient-to-r from-blue-900/20 to-purple-900/20 mb-4 animate-slide-up')
             
             with welcome_card:
-                with ui.row().classes('items-center gap-8'):
-                    with ui.column().classes('flex-1'):
-                        ui.label('Welcome to Email Archiver').classes('text-2xl font-bold')
-                        ui.label('Connect your first email provider to start building your intelligence archive.').classes('text-gray-400')
+                with ui.row().classes('items-center gap-8 p-2'):
+                    with ui.column().classes('flex-1 space-y-4'):
+                        ui.label('Welcome to Email Archiver').classes('text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent')
+                        ui.label('Connect your first email provider to start building your intelligence archive.').classes('text-gray-400 text-base leading-relaxed')
                         with ui.row().classes('gap-4 mt-4'):
-                            ui.button('Connect Gmail', on_click=lambda: tabs.set_value(settings_tab))
-                            ui.button('Connect Microsoft 365', on_click=lambda: tabs.set_value(settings_tab))
-                    ui.label('🚀').classes('text-6xl')
+                            ui.button('📩 Connect Gmail', on_click=lambda: tabs.set_value(settings_tab)).classes('bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-blue-500/50 transition-all duration-300')
+                            ui.button('☁️ Connect Microsoft 365', on_click=lambda: tabs.set_value(settings_tab)).classes('bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-purple-500/50 transition-all duration-300')
+                    with ui.column().classes('items-center justify-center'):
+                        ui.label('🚀').classes('text-7xl animate-bounce')
             
             # Stats grid
             @ui.refreshable
             def stats_grid():
-                with ui.row().classes('w-full gap-4'):
-                    with ui.card().classes('flex-1'):
-                        ui.label('TOTAL ARCHIVED').classes('text-xs text-gray-400 uppercase')
-                        ui.label(f'{state.total_archived:,}').classes('text-3xl font-bold')
+                with ui.row().classes('w-full gap-4 animate-fade-in'):
+                    # Total Archived Card
+                    with ui.card().classes('flex-1 glass hover:bg-white/10 transition-all duration-300 group'):
+                        with ui.row().classes('w-full justify-between items-start mb-2'):
+                            ui.label('TOTAL ARCHIVED').classes('text-xs text-gray-400 uppercase tracking-wider font-semibold')
+                            ui.label('📁').classes('text-2xl opacity-50 group-hover:opacity-100 transition-opacity')
+                        ui.label(f'{state.total_archived:,}').classes('text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent')
+                        ui.label('Updated: Just Now').classes('text-xs text-gray-600 mt-1')
                     
-                    with ui.card().classes('flex-1'):
-                        ui.label('AI CLASSIFIED').classes('text-xs text-gray-400 uppercase')
-                        ui.label(f'{state.classified:,}').classes('text-3xl font-bold')
+                    # AI Classified Card
+                    with ui.card().classes('flex-1 glass hover:bg-white/10 transition-all duration-300 group'):
+                        with ui.row().classes('w-full justify-between items-start mb-2'):
+                            ui.label('AI CLASSIFIED').classes('text-xs text-gray-400 uppercase tracking-wider font-semibold')
+                            ui.label('🧠').classes('text-2xl opacity-50 group-hover:opacity-100 transition-opacity')
+                        ui.label(f'{state.classified:,}').classes('text-4xl font-bold bg-gradient-to-r from-purple-400 to-purple-600 bg-clip-text text-transparent')
                         if state.ai_classification_total > 0:
                             success_rate = (state.ai_classification_success / state.ai_classification_total) * 100
-                            ui.label(f'Success Rate: {success_rate:.1f}%').classes('text-xs text-green-400')
+                            with ui.row().classes('items-center gap-2 mt-1'):
+                                ui.label('✓').classes('text-green-400 text-sm')
+                                ui.label(f'Success Rate: {success_rate:.1f}%').classes('text-xs text-green-400 font-semibold')
                         else:
-                            ui.label(f'Active Categories: {len(state.categories)}').classes('text-xs text-gray-500')
+                            ui.label(f'Active Categories: {len(state.categories)}').classes('text-xs text-gray-600 mt-1')
                     
-                    with ui.card().classes('flex-1'):
-                        ui.label('DATA ENTITIES').classes('text-xs text-gray-400 uppercase')
-                        ui.label(f'{state.extracted:,}').classes('text-3xl font-bold')
+                    # Data Entities Card
+                    with ui.card().classes('flex-1 glass hover:bg-white/10 transition-all duration-300 group'):
+                        with ui.row().classes('w-full justify-between items-start mb-2'):
+                            ui.label('DATA ENTITIES').classes('text-xs text-gray-400 uppercase tracking-wider font-semibold')
+                            ui.label('📊').classes('text-2xl opacity-50 group-hover:opacity-100 transition-opacity')
+                        ui.label(f'{state.extracted:,}').classes('text-4xl font-bold bg-gradient-to-r from-indigo-400 to-indigo-600 bg-clip-text text-transparent')
                         if state.ai_extraction_total > 0:
                             success_rate = (state.ai_extraction_success / state.ai_extraction_total) * 100
-                            ui.label(f'Success Rate: {success_rate:.1f}%').classes('text-xs text-indigo-400')
+                            with ui.row().classes('items-center gap-2 mt-1'):
+                                ui.label('✓').classes('text-indigo-400 text-sm')
+                                ui.label(f'Success Rate: {success_rate:.1f}%').classes('text-xs text-indigo-400 font-semibold')
                         else:
-                            ui.label('Structured Extraction').classes('text-xs text-gray-500')
+                            ui.label('Structured Extraction').classes('text-xs text-gray-600 mt-1')
                     
-                    with ui.card().classes('flex-1'):
-                        ui.label('LLM STATUS').classes('text-xs text-gray-400 uppercase')
+                    # LLM Status Card
+                    with ui.card().classes('flex-1 glass hover:bg-white/10 transition-all duration-300 group cursor-pointer'):
+                        with ui.row().classes('w-full justify-between items-start mb-2'):
+                            ui.label('LLM STATUS').classes('text-xs text-gray-400 uppercase tracking-wider font-semibold')
+                            status_emoji = '🟢' if state.llm_status == 'online' else '🔴' if state.llm_status in ['offline', 'error'] else '⚪'
+                            ui.label(status_emoji).classes('text-2xl opacity-50 group-hover:opacity-100 transition-opacity')
                         status_color = 'text-green-400' if state.llm_status == 'online' else 'text-red-400' if state.llm_status in ['offline', 'error'] else 'text-gray-400'
-                        ui.label(state.llm_status.upper()).classes(f'text-2xl font-bold {status_color}')
-                        ui.label(state.llm_model or 'Click to check').classes('text-xs text-gray-500')
+                        ui.label(state.llm_status.upper()).classes(f'text-3xl font-bold {status_color}')
+                        ui.label(state.llm_model or 'Click to check').classes('text-xs text-gray-600 mt-1 truncate')
             
             stats_grid()
             

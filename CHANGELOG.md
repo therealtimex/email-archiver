@@ -15,13 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Professional component library (tables, dialogs, forms)
   - Better accessibility out of the box
   - ~35% less code for the UI layer
+- **Tailwind CSS Integration**: Enhanced UI with comprehensive Tailwind CSS styling:
+  - Modern glassmorphism effects with backdrop blur
+  - Gradient text and backgrounds for visual appeal
+  - Smooth animations (fade-in, slide-up, pulse)
+  - Enhanced stats cards with hover effects and gradient numbers
+  - Professional color system with blue, purple, and indigo themes
+  - Custom scrollbars and improved typography
+  - Responsive design with mobile-first approach
+  - Colored shadows and glow effects for depth
 - **Feature Parity Achieved**: NiceGUI dashboard now includes all features from legacy UI:
   - AI Stats display with success/failure rates for classification and extraction
   - Advanced sync options: After ID, Specific ID, Local-only mode
   - Re-analyze Local Archive button for reprocessing downloaded emails
   - Email search/filter functionality with real-time updates
   - Page jump input for quick pagination navigation
-  - Download .eml button in email detail modal
+  - Enhanced email detail modal with comprehensive information panels
+  - Download .eml button in email detail header with icon
   - Provider secrets JSON input for Gmail credentials and M365 config
   - Auto-scroll logs to bottom for better monitoring
 - **Legacy UI Option**: Use `--ui-legacy` flag to use the original Alpine.js UI if needed
@@ -29,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Default UI**: `--ui` now launches the new NiceGUI dashboard by default
 - **Dependencies**: Added `nicegui>=2.0.0` to requirements
+- **Visual Design**: Significantly improved visual hierarchy and modern aesthetics
 
 ## [1.3.4] - 2025-12-28
 
