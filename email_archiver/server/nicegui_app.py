@@ -314,10 +314,24 @@ def create_sync_button():
                     
                     with ui.row().classes('flex-1 gap-4 items-center'):
                         sync_incremental = ui.switch('Incremental', value=True).props('dense color=blue')
+                        with sync_incremental:
+                            ui.tooltip('Only fetch new emails since last sync. Much faster!')
+                            
                         sync_classify = ui.switch('Classify', value=True).props('dense color=green')
+                        with sync_classify:
+                            ui.tooltip('Use AI to categorize emails (e.g. Finance, Travel, Work).')
+                            
                         sync_extract = ui.switch('Extract', value=True).props('dense color=purple')
+                        with sync_extract:
+                            ui.tooltip('Deep-scan bodies for entities like organizations and action items.')
+                            
                         sync_rename = ui.switch('Rename', value=True).props('dense color=orange')
+                        with sync_rename:
+                            ui.tooltip('Rename .eml files to clean, slugified titles.')
+                            
                         sync_embed = ui.switch('Embed', value=True).props('dense color=cyan')
+                        with sync_embed:
+                            ui.tooltip('Inject AI metadata directly into the .eml file headers.')
 
                 # Row 2: Input Grid (2x2)
                 with ui.grid(columns=2).classes('w-full gap-4'):
@@ -325,21 +339,29 @@ def create_sync_button():
                         'Since Date',
                         value=datetime.now().strftime('%Y-%m-%d')
                     ).props('outlined dense type=date').classes('w-full')
+                    with sync_since:
+                        ui.tooltip('Fetch emails received on or after this date.')
                     
                     sync_query = ui.input(
                         'Search Query',
                         placeholder='e.g. from:invoice'
                     ).props('outlined dense').classes('w-full')
+                    with sync_query:
+                        ui.tooltip('Advanced search query (e.g. "subject:report").')
                     
                     sync_after_id = ui.input(
                         'After ID',
                         placeholder='Fetch emails after this ID'
                     ).props('outlined dense').classes('w-full')
+                    with sync_after_id:
+                        ui.tooltip('Resume fetching precisely after this unique Message ID.')
                     
                     sync_specific_id = ui.input(
                         'Specific ID',
                         placeholder='Fetch only this specific email'
                     ).props('outlined dense').classes('w-full')
+                    with sync_specific_id:
+                        ui.tooltip('Download only this single message by ID (overrides other filters).')
             
             # --- RIGHT COLUMN: Action Buttons ---
             with ui.column().classes('items-center gap-4 min-w-[140px] pt-1'):
@@ -708,6 +730,8 @@ def create_settings_page(dark_mode: ui.dark_mode):
                         label='Theme',
                         on_change=lambda e: apply_theme(e.value)
                     ).props('outlined dense options-dense').classes('w-32')
+                    with theme_mode:
+                        ui.tooltip('Switch between Dark, Light, or System-based appearance.')
 
             # 2. Intelligence Hub
             with ui.card().classes('w-full p-4'):
@@ -718,7 +742,12 @@ def create_settings_page(dark_mode: ui.dark_mode):
                 # Toggles
                 with ui.row().classes('w-full gap-4 mb-4'):
                     class_enabled = ui.switch('Classification', value=config['classification'].get('enabled', False)).props('dense color=blue')
+                    with class_enabled:
+                        ui.tooltip('Enable AI-powered categorization of your emails.')
+                        
                     extract_enabled = ui.switch('Extraction', value=config['extraction'].get('enabled', False)).props('dense color=purple')
+                    with extract_enabled:
+                        ui.tooltip('Enable deep extraction of structured data from email bodies.')
                 
                 ui.separator().classes('mb-4')
                 
