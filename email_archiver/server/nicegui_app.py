@@ -8,7 +8,7 @@ import json
 import logging
 import asyncio
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Callable
 from dataclasses import dataclass, field
 
 import yaml
@@ -62,6 +62,7 @@ class AppState:
     llm_status: str = "checking"
     llm_message: str = ""
     llm_model: str = ""
+    ui_theme: str = "dark"
 
 state = AppState()
 db = DBHandler()
@@ -135,7 +136,7 @@ def load_config(path: str) -> Dict[str, Any]:
     """Load configuration from YAML file."""
     if not os.path.exists(path):
         return {
-            'app': {'download_dir': 'downloads/'},
+            'app': {'download_dir': 'downloads/', 'ui_theme': 'dark'},
             'gmail': {'scopes': ['https://www.googleapis.com/auth/gmail.readonly']},
             'm365': {'scopes': ['https://graph.microsoft.com/Mail.Read']},
             'classification': {'enabled': False, 'model': 'gpt-4o-mini', 'api_key': '', 'base_url': ''},
@@ -221,7 +222,8 @@ async def run_sync_task(
     after_id: Optional[str] = None,
     specific_id: Optional[str] = None,
     query: Optional[str] = None,
-    local_only: bool = False
+    local_only: bool = False,
+    on_complete: Optional[Callable] = None
 ):
     """Run synchronization task in background."""
     state.is_running = True
@@ -265,6 +267,11 @@ async def run_sync_task(
         state.progress = 100
         root_logger.removeHandler(ui_log_handler)
         # refresh_stats() handled by auto-refresh timer
+        if on_complete:
+            try:
+                on_complete()
+            except Exception as e:
+                logging.warning(f"Failed to execute on_complete callback: {e}")
 
 
 def stop_sync():
@@ -353,6 +360,7 @@ def create_sync_button():
                                 after_id=sync_after_id.value if sync_after_id.value else None,
                                 specific_id=sync_specific_id.value if sync_specific_id.value else None,
                                 query=sync_query.value if sync_query.value else None,
+                                on_complete=lambda: (sync_button_display.refresh(), reanalyze_button.refresh())
                             ))
                         sync_button_display.refresh()
                         reanalyze_button.refresh()
@@ -375,7 +383,8 @@ def create_sync_button():
                                 extract=sync_extract.value,
                                 rename=sync_rename.value,
                                 embed=sync_embed.value,
-                                local_only=True
+                                local_only=True,
+                                on_complete=lambda: (sync_button_display.refresh(), reanalyze_button.refresh())
                             ))
                             sync_button_display.refresh()
                             reanalyze_button.refresh()
@@ -387,10 +396,10 @@ def create_sync_button():
 
 def create_log_console():
     """Create the real-time log console."""
-    with ui.card().classes('w-full h-64'):
+    with ui.card().classes('w-full h-56'):
         ui.label('Process Output').classes('text-xs font-bold text-gray-400 uppercase mb-2')
         
-        log_container = ui.column().classes('w-full h-48 overflow-y-auto font-mono text-xs bg-gray-900 rounded p-2')
+        log_container = ui.column().classes('w-full h-40 overflow-y-auto font-mono text-xs bg-gray-900 rounded p-2')
         
         def update_logs():
             log_container.clear()
@@ -418,7 +427,10 @@ def create_email_table():
             ui.label('Intelligence Feed').classes('text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent')
             
             # Search input
-            search_input = ui.input('Search', placeholder='Search emails...').classes('w-64')
+            search_input = ui.input('Search', placeholder='Search emails...') \
+                .props('outlined dense').classes('w-64')
+            with search_input.add_slot('prepend'):
+                ui.icon('search')
             
         # Pagination state
         current_page = {'value': 1}
@@ -526,7 +538,7 @@ def show_email_detail(email: Dict[str, Any]):
     """Show email detail dialog with full information."""
     with ui.dialog() as dialog, ui.card().classes('w-full max-w-4xl max-h-[90vh] overflow-hidden'):
         # Header with title and close button
-        with ui.row().classes('w-full justify-between items-start p-4 border-b border-white/10'):
+        with ui.row().classes('w-full justify-between items-start p-3 border-b border-white/10'):
             with ui.column().classes('flex-1'):
                 ui.label(email.get('subject', 'No Subject')).classes('text-xl font-bold mb-2')
                 with ui.row().classes('gap-4 text-xs text-gray-400'):
@@ -628,13 +640,13 @@ def show_email_detail(email: Dict[str, Any]):
     dialog.open()
 
 
-def create_settings_page():
+def create_settings_page(dark_mode: ui.dark_mode):
     """Create the settings page with a modern 2-column layout."""
     config = load_config(CONFIG_PATH)
     
     # Ensure nested dicts exist
     if 'app' not in config:
-        config['app'] = {'download_dir': 'downloads/'}
+        config['app'] = {'download_dir': 'downloads/', 'ui_theme': 'dark'}
     if 'classification' not in config:
         config['classification'] = {'enabled': False, 'model': 'gpt-4o-mini', 'api_key': '', 'base_url': ''}
     if 'extraction' not in config:
@@ -644,9 +656,24 @@ def create_settings_page():
     if 'headers' not in config['webhook']:
         config['webhook']['headers'] = {'Authorization': ''}
 
+    def apply_theme(mode: str):
+        """Apply theme mode to the UI."""
+        if mode == 'dark':
+            dark_mode.enable()
+        elif mode == 'light':
+            dark_mode.disable()
+        else:
+            dark_mode.auto()
+
     # --- SAVE HANDLER ---
     def save_settings():
         config['app']['download_dir'] = download_dir.value
+        config['app']['ui_theme'] = theme_mode.value
+        state.ui_theme = theme_mode.value
+        
+        # Ensure applied
+        apply_theme(state.ui_theme)
+            
         config['classification']['enabled'] = class_enabled.value
         config['classification']['model'] = llm_model.value
         config['classification']['api_key'] = llm_api_key.value
@@ -668,10 +695,19 @@ def create_settings_page():
             # 1. System Settings
             with ui.card().classes('w-full p-4'):
                 ui.label('System Preferences').classes('text-lg font-bold mb-2')
-                download_dir = ui.input(
-                    'Download Directory',
-                    value=config['app'].get('download_dir', 'downloads/')
-                ).props('outlined dense').classes('w-full')
+                
+                with ui.row().classes('w-full gap-4'):
+                    download_dir = ui.input(
+                        'Download Directory',
+                        value=config['app'].get('download_dir', 'downloads/')
+                    ).props('outlined dense').classes('flex-1')
+                    
+                    theme_mode = ui.select(
+                        {'dark': 'Dark', 'light': 'Light', 'system': 'System'},
+                        value=config['app'].get('ui_theme', 'dark'),
+                        label='Theme',
+                        on_change=lambda e: apply_theme(e.value)
+                    ).props('outlined dense options-dense').classes('w-32')
 
             # 2. Intelligence Hub
             with ui.card().classes('w-full p-4'):
@@ -728,7 +764,7 @@ def create_settings_page():
         # === RIGHT COLUMN: Integrations & Danger ===
         with ui.column().classes('flex-1 gap-6'):
             
-            ui.label('Provider Integrations').classes('text-xl font-bold text-gray-200 px-1')
+            ui.label('Provider Integrations').classes('text-xl font-bold px-1')
 
             # Provider Cards Logic
             @ui.refreshable
@@ -891,30 +927,58 @@ def main_page():
     refresh_stats()
     check_llm_status()
     
-    # Dark theme
-    ui.dark_mode().enable()
+    # Initialize theme from config
+    config = load_config(CONFIG_PATH)
+    state.ui_theme = config.get('app', {}).get('ui_theme', 'dark')
     
-    # Custom CSS
+    # Apply theme
+    dark_mode = ui.dark_mode()
+    if state.ui_theme == 'dark':
+        dark_mode.enable()
+    elif state.ui_theme == 'light':
+        dark_mode.disable()
+    else:
+        dark_mode.auto()
+    
+    # Custom CSS - Theme Aware
     ui.add_head_html('''
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .nicegui-content { background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%); min-height: 100vh; }
-        .q-card { background: rgba(255, 255, 255, 0.05) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        /* Backgrounds */
+        .body--dark .nicegui-content { background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%); min-height: 100vh; }
+        .body--light .nicegui-content { background: #f5f7fa; min-height: 100vh; }
+        
+        /* Headers */
+        .body--dark .q-header { background-color: #0f0f23 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important; }
+        .body--light .q-header { background-color: #ffffff !important; color: #1a1a2e !important; border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; }
+        
+        /* Cards */
+        .body--dark .q-card { background: rgba(255, 255, 255, 0.05) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .body--light .q-card { background: #ffffff !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important; }
+        
+        /* Tables */
         .q-table { background: transparent !important; }
         .q-table__card { background: transparent !important; }
+        
+        /* Light mode text colors */
+        .body--light .text-gray-200 { color: #334155 !important; }
+        .body--light .text-gray-300 { color: #475569 !important; }
+        .body--light .text-gray-400 { color: #64748b !important; }
+        .body--light .text-gray-500 { color: #94a3b8 !important; }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     ''')
     
     # Header
-    with ui.header().classes('bg-transparent border-b border-white/10'):
-        with ui.row().classes('w-full items-center justify-between px-4 py-1'):
+    with ui.header().classes('bg-transparent'):
+        with ui.row().classes('w-full items-center justify-between px-4 py-1 h-12'):
             # 1. Logo & Title
-            with ui.row().classes('items-center gap-4'):
-                ui.label('E').classes('w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 font-bold')
+            with ui.row().classes('items-center gap-3'):
+                ui.label('E').classes('w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center text-blue-400 font-bold')
                 with ui.column().classes('gap-0'):
-                    ui.label('Archive Intelligence').classes('text-lg font-bold')
-                    ui.label(f'Dashboard v{__version__}').classes('text-xs text-gray-400')
+                    ui.label('Archive Intelligence').classes('text-sm font-bold leading-tight')
+                    ui.label(f'v{__version__}').classes('text-[10px] text-gray-500 leading-tight')
             
             # 2. Navigation Tabs (Moved to Header)
             with ui.tabs().classes('bg-transparent text-gray-400') \
@@ -1015,7 +1079,7 @@ def main_page():
         
         # Settings Panel
         with ui.tab_panel(settings_tab).classes('p-4'):
-            create_settings_page()
+            create_settings_page(dark_mode)
     
     # Auto-refresh timer
     def auto_refresh():
