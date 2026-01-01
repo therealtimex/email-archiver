@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-01-01
+
+### Added
+- **Theme Support**: Implemented Dark, Light, and System theme switching in the NiceGUI dashboard Settings.
+- **Dynamic Theme Preview**: Theme changes apply instantly to the UI with a live preview.
+
+### Changed
+- **Modernized Header**: Redesigned the top bar to be thinner (h-14) with a solid background and edge-aligned tab indicators.
+- **UI Aesthetics**: Improved Light mode color scheme, readability of gray text, and polished various UI components for better contrast.
+
+### Fixed
+- **Sync Button Logic**: Fixed a bug where the SYNC button would not reset to the "SYNC" state after a background task finished.
+- **Graceful Shutdown**: Added handling for `KeyboardInterrupt` (Ctrl+C) to silence Python tracebacks and provide a clean "Goodbye" message when stopping the server or CLI.
+- **UI Notification Stability**: Improved error handling for UI notifications to prevent warnings and potential crashes during client disconnections.
+
 ## [1.4.0] - 2025-12-31
 
 ### Added
