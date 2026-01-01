@@ -961,6 +961,10 @@ def main_page():
         .q-table { background: transparent !important; }
         .q-table__card { background: transparent !important; }
         
+        /* Tab Indicators on edge */
+        .q-tab__indicator { height: 3px !important; border-radius: 3px 3px 0 0; }
+        .q-tabs { height: 100%; }
+        
         /* Light mode text colors */
         .body--light .text-gray-200 { color: #334155 !important; }
         .body--light .text-gray-300 { color: #475569 !important; }
@@ -971,8 +975,8 @@ def main_page():
     ''')
     
     # Header
-    with ui.header().classes('bg-transparent'):
-        with ui.row().classes('w-full items-center justify-between px-4 py-1 h-12'):
+    with ui.header().classes('p-0'):
+        with ui.row().classes('w-full items-center justify-between px-4 h-14'):
             # 1. Logo & Title
             with ui.row().classes('items-center gap-3'):
                 ui.label('E').classes('w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center text-blue-400 font-bold')
@@ -981,8 +985,8 @@ def main_page():
                     ui.label(f'v{__version__}').classes('text-[10px] text-gray-500 leading-tight')
             
             # 2. Navigation Tabs (Moved to Header)
-            with ui.tabs().classes('bg-transparent text-gray-400') \
-                .props('indicator-color="blue-400" active-color="blue-400" dense') as tabs:
+            with ui.tabs().classes('bg-transparent text-gray-400 self-stretch') \
+                .props('indicator-color="blue-400" active-color="blue-400" dense no-caps') as tabs:
                 dashboard_tab = ui.tab('Dashboard', icon='dashboard')
                 settings_tab = ui.tab('Settings', icon='settings')
 

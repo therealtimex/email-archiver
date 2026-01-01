@@ -311,11 +311,19 @@ def main():
         if args.ui_legacy:
             # Use legacy Alpine.js UI
             from email_archiver.server.app import start_server
-            start_server(port=args.port, open_browser=args.browser)
+            try:
+                start_server(port=args.port, open_browser=args.browser)
+            except KeyboardInterrupt:
+                print("\n\nServer stopped by user. Goodbye! 👋")
+                sys.exit(0)
         else:
             # Use new NiceGUI UI (default)
             from email_archiver.server.nicegui_app import start_nicegui_server
-            start_nicegui_server(port=args.port, open_browser=args.browser)
+            try:
+                start_nicegui_server(port=args.port, open_browser=args.browser)
+            except KeyboardInterrupt:
+                print("\n\nServer stopped by user. Goodbye! 👋")
+                sys.exit(0)
         return
 
     if not args.provider:
@@ -913,4 +921,8 @@ def run_archiver_logic_internal(
             logging.info(f"Extraction: {extractor_stats}")
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\nServer stopped by user. Goodbye! 👋")
+        sys.exit(0)
