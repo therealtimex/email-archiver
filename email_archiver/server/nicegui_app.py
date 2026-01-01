@@ -347,9 +347,9 @@ def create_log_console():
 
 def create_email_table():
     """Create the email intelligence feed table."""
-    with ui.card().classes('w-full'):
+    with ui.card().classes('w-full glass'):
         with ui.row().classes('w-full justify-between items-center mb-4'):
-            ui.label('Intelligence Feed').classes('text-lg font-bold')
+            ui.label('Intelligence Feed').classes('text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent')
             
             # Search input
             search_input = ui.input('Search', placeholder='Search emails...').classes('w-64')
@@ -358,6 +358,9 @@ def create_email_table():
         current_page = {'value': 1}
         page_size = 20
         search_query = {'value': ''}
+        
+        # Store email data for access in button handlers
+        email_data = {'emails': []}
         
         @ui.refreshable
         def email_table_display():
@@ -371,12 +374,14 @@ def create_email_table():
                 search_query=search_query['value'] if search_query['value'] else None
             )
             
+            # Store emails for button handlers
+            email_data['emails'] = {email.get('message_id'): email for email in emails}
+            
             columns = [
                 {'name': 'subject', 'label': 'Subject', 'field': 'subject', 'align': 'left', 'sortable': True},
                 {'name': 'sender', 'label': 'From', 'field': 'sender', 'align': 'left', 'sortable': True},
                 {'name': 'received_at', 'label': 'Date', 'field': 'received_at', 'align': 'left', 'sortable': True},
                 {'name': 'category', 'label': 'Category', 'field': 'category', 'align': 'left'},
-                {'name': 'actions', 'label': '', 'field': 'actions', 'align': 'center'},
             ]
             
             rows = []
@@ -390,31 +395,34 @@ def create_email_table():
                     'sender': email.get('sender', 'Unknown')[:40],
                     'received_at': email.get('received_at', '')[:16] if email.get('received_at') else '',
                     'category': category.upper() if category else 'UNPROCESSED',
-                    'actions': '👁️ View'
                 })
             
-            email_table = ui.table(
+            # Create table with custom slot for actions
+            with ui.table(
                 columns=columns,
                 rows=rows,
                 row_key='message_id',
                 pagination=page_size
-            ).classes('w-full')
-            
-            # Add click handler using selection
-            email_table.props('dense')
-            
-            # Use on_select instead of rowClick
-            def on_select(e):
-                if e.selection:
-                    msg_id = e.selection[0]['message_id']
-                    email = db.get_email(msg_id)
+            ).classes('w-full cursor-pointer') as table:
+                table.props('dense flat')
+                
+                # Add custom slot for each row to make it clickable
+                table.add_slot('body', r'''
+                    <q-tr :props="props" @click="() => $parent.$emit('rowClick', props.row)" class="cursor-pointer hover:bg-white/5">
+                        <q-td v-for="col in props.cols" :key="col.name" :props="props">
+                            {{ col.value }}
+                        </q-td>
+                    </q-tr>
+                ''')
+                
+                # Handle row click
+                def handle_row_click(e):
+                    msg_id = e.args['message_id']
+                    email = email_data['emails'].get(msg_id)
                     if email:
                         show_email_detail(email)
-                    # Clear selection after opening modal
-                    email_table.selected = []
-            
-            email_table.on('selection', on_select)
-            email_table.props('selection="single"')
+                
+                table.on('rowClick', handle_row_click)
         
         email_table_display()
         
