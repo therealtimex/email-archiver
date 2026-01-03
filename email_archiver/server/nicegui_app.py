@@ -1008,7 +1008,29 @@ def main_page():
         with ui.row().classes('w-full items-center justify-between px-4 h-14'):
             # 1. Logo & Title
             with ui.row().classes('items-center gap-3'):
-                ui.label('E').classes('w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center text-blue-400 font-bold')
+                # EESA Logo SVG
+                ui.html('''
+                    <svg width="48" height="48" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <style>
+                            .eesa-text { fill: #1e293b; }
+                            .eesa-wireframe { stroke: #94a3b8; }
+                            @media (prefers-color-scheme: dark) {
+                                .eesa-text { fill: #f8fafc; }
+                                .eesa-wireframe { stroke: #475569; }
+                            }
+                        </style>
+                        <defs>
+                            <linearGradient id="mainGradient" x1="100" y1="100" x2="400" y2="400" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stop-color="#0ea5e9" />
+                                <stop offset="100%" stop-color="#7c3aed" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M128 240 V340 C128 362.091 145.909 380 168 380 H344 C366.091 380 384 362.091 384 340 V240" stroke="url(#mainGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M150 190 L235 275 C246.7 286.7 265.3 286.7 277 275 L362 190" stroke="url(#mainGradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path class="eesa-wireframe" d="M150 190 V152 C150 140 160 130 172 130 H340 C352 130 362 140 362 152 V190" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M390 100 L400 120 L420 130 L400 140 L390 160 L380 140 L360 130 L380 120 Z" fill="#db2777" />
+                    </svg>
+                ''', sanitize=False).classes('w-12 h-12')
                 with ui.column().classes('gap-0'):
                     ui.label('Archive Intelligence').classes('text-sm font-bold leading-tight')
                     ui.label(f'v{__version__}').classes('text-[10px] text-gray-500 leading-tight')

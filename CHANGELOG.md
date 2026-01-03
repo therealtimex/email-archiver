@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-01-01
+
+### Added
+- **New Branding**: Replaced the placeholder logo with a custom-designed EESA SVG logo in the dashboard header, featuring a modern gradient and responsive theme-aware styling.
+
 ## [1.4.3] - 2026-01-01
 
 ### Added
