@@ -1114,16 +1114,23 @@ def main_page():
         with ui.tab_panel(settings_tab).classes('p-4'):
             create_settings_page(dark_mode)
     
-    # Auto-refresh timer
+    # Auto-refresh timer with adaptive interval
     def auto_refresh():
         refresh_stats()
         check_auth_status()
-        if not state.is_running:
+        
+        if state.is_running:
+            # Poll faster during active sync for real-time feel
+            refresh_timer.interval = 1.0
+        else:
+            # Poll slower when idle to save resources
+            refresh_timer.interval = 10.0
             check_llm_status()
+            
         stats_grid.refresh()
         status_indicator.refresh()
     
-    ui.timer(3.0, auto_refresh)
+    refresh_timer = ui.timer(3.0, auto_refresh)
 
 
 # ============================================================================ 
